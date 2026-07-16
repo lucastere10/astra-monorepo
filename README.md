@@ -1,21 +1,75 @@
-# shadcn/ui monorepo template
+# Astra Newsletter
 
-This is a Next.js monorepo template with shadcn/ui.
+**Astra** ranks technology signal to your interests and delivers it as a personalized newsletter — intelligence first, inbox second.
 
-## Adding components
+Monorepo with:
 
-To add components to your app, run the following command at the root of your `web` app:
+| Path | Role |
+|------|------|
+| `apps/web` | Next.js app (landing, auth, dashboard, admin) |
+| `workers/collector` | Python worker (collect → enrich → score → deliver) |
+| `packages/database` | Prisma schema + migrations (Supabase Postgres) |
+| `packages/shared` | Shared types, topics, branding, scoring |
+| `packages/ui` | shadcn/ui components |
+| `deploy/` | Cloud Run / Scheduler / Cloud Build docs |
+
+## Prerequisites
+
+- Node.js 20+
+- [pnpm](https://pnpm.io/) 10+
+- Python 3.11+ (worker)
+- A Supabase (PostgreSQL) project
+
+## Setup
 
 ```bash
-pnpm dlx shadcn@latest add button -c apps/web
+# From the repo root
+cp .env.example .env
+# Fill DATABASE_URL, DIRECT_URL, SESSION_SECRET at minimum.
+# Optional: RESEND_API_KEY, OPENAI_API_KEY, EXA_API_KEY, REDIS_URL
+
+pnpm install
+
+pnpm --filter @workspace/database db:migrate:deploy
+pnpm --filter @workspace/database db:seed
 ```
 
-This will place the ui components in the `packages/ui/src/components` directory.
+Set `ADMIN_EMAIL` in `.env` before seeding if you want a first admin user.
 
-## Using components
+## Run the web app
 
-To use the components in your app, import them from the `ui` package.
-
-```tsx
-import { Button } from "@workspace/ui/components/button";
+```bash
+pnpm --filter web dev
 ```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+Without `RESEND_API_KEY`, magic-link emails are logged to the server console.
+
+## Run the collector worker
+
+```bash
+cd workers/collector
+cp .env.example .env   # same DATABASE_URL (direct/5432), optional API keys
+python -m venv .venv
+# Windows PowerShell:
+. .venv\Scripts\Activate.ps1
+pip install -e .
+
+collector collect    # ingest + enrich sources
+collector deliver    # generate/send due newsletters
+```
+
+See [workers/collector/README.md](workers/collector/README.md) for architecture and cron suggestions.
+
+## Useful scripts
+
+```bash
+pnpm build                         # turbo build
+pnpm typecheck                     # turbo typecheck
+pnpm --filter @workspace/database db:studio
+```
+
+## Deploy
+
+Production targets GCP Cloud Run (`astra-web`, `astra-collect`, `astra-deliver`). See [deploy/README.md](deploy/README.md) and root [`cloudbuild.yaml`](cloudbuild.yaml).

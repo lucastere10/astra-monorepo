@@ -1,0 +1,23 @@
+{
+  "name": "@workspace/shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "format": "prettier --write \"**/*.ts\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./topics": "./src/topics.ts",
+    "./events": "./src/events.ts",
+    "./scoring": "./src/scoring.ts",
+    "./utils": "./src/utils.ts",
+    "./cadence": "./src/cadence.ts",
+    "./branding": "./src/branding.ts"
+  },
+  "devDependencies": {
+    "@workspace/typescript-config": "workspace:*",
+    "typescript": "^5"
+  }
+}

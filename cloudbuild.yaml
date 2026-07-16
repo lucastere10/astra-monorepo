@@ -1,0 +1,271 @@
+# Astra Newsletter — build & deploy to Cloud Run (Service + Jobs + Scheduler)
+#
+# Non-secret configuration lives in substitutions below (override in the trigger).
+# Secrets are mounted from Secret Manager at deploy time.
+
+substitutions:
+  _REGION: southamerica-east1
+  _AR_REPO: astra
+  _SERVICE_WEB: astra-web
+  _JOB_COLLECT: astra-collect
+  _JOB_DELIVER: astra-deliver
+  _WEB_SA: astra-sa
+  _JOBS_SA: astra-sa
+  _SCHEDULER_SA: scheduler-sa
+  _EMAIL_FROM: "Astra Newsletter <onboarding@caldasdev.com.br>"
+
+  # Set to the Cloud Run URL (or custom domain) after first deploy / in the trigger.
+  _NEXT_PUBLIC_APP_URL: "https://newsletter-ai.caldasdev.com.br"
+  _APP_URL: "https://newsletter-ai.caldasdev.com.br"
+  _OPENAI_MODEL: gpt-4o-mini
+  _OPENAI_EMBEDDING_MODEL: text-embedding-3-small
+  _COLLECT_CRON: "0 */4 * * *"
+  _DELIVER_CRON: "0 * * * *"
+
+  # Set to "true" only after creating the REDIS_URL secret.
+  _ENABLE_REDIS: "false"
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: E2_HIGHCPU_8
+
+timeout: 3600s
+
+images:
+  - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/web:${SHORT_SHA}
+  - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/web:latest
+  - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/collector:${SHORT_SHA}
+  - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/collector:latest
+
+steps:
+  # ---------------------------------------------------------------------------
+  # Build images
+  # ---------------------------------------------------------------------------
+  - id: build-web
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f
+      - apps/web/Dockerfile
+      - -t
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/web:${SHORT_SHA}
+      - -t
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/web:latest
+      - --build-arg
+      - NEXT_PUBLIC_APP_URL=${_NEXT_PUBLIC_APP_URL}
+      - .
+
+  - id: build-collector
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f
+      - workers/collector/Dockerfile
+      - -t
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/collector:${SHORT_SHA}
+      - -t
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/collector:latest
+      - workers/collector
+    waitFor: ["-"]
+
+  - id: push-web
+    name: gcr.io/cloud-builders/docker
+    entrypoint: bash
+    waitFor: ["build-web"]
+    args:
+      - -c
+      - |
+        docker push ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/web:${SHORT_SHA}
+        docker push ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/web:latest
+
+  - id: push-collector
+    name: gcr.io/cloud-builders/docker
+    entrypoint: bash
+    waitFor: ["build-collector"]
+    args:
+      - -c
+      - |
+        docker push ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/collector:${SHORT_SHA}
+        docker push ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/collector:latest
+
+  # ---------------------------------------------------------------------------
+  # Prisma migrate (uses DIRECT_URL from Secret Manager)
+  # ---------------------------------------------------------------------------
+  - id: migrate
+    name: node:20
+    entrypoint: bash
+    secretEnv: ["DIRECT_URL", "DATABASE_URL"]
+    waitFor: ["push-web"]
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        corepack enable
+        corepack prepare pnpm@10.33.4 --activate
+        pnpm install --frozen-lockfile --filter @workspace/database...
+        export DIRECT_URL DATABASE_URL
+        pnpm --filter @workspace/database exec prisma migrate deploy
+
+  # ---------------------------------------------------------------------------
+  # Deploy Cloud Run Service (web)
+  # ---------------------------------------------------------------------------
+  - id: deploy-web
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: bash
+    waitFor: ["migrate"]
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        IMAGE="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/web:${SHORT_SHA}"
+        WEB_SA="${_WEB_SA}@${PROJECT_ID}.iam.gserviceaccount.com"
+        SECRETS="DATABASE_URL=astra-database-url:latest,DIRECT_URL=astra-direct-url:latest,SESSION_SECRET=astra-session-secret:latest,RESEND_API_KEY=astra-resend-api-key:latest"
+        if [[ "${_ENABLE_REDIS}" == "true" ]]; then
+          SECRETS="$${SECRETS},REDIS_URL=REDIS_URL:latest"
+        fi
+        # Use ^|^ delimiter so EMAIL_FROM may contain commas / angle brackets.
+        gcloud run deploy "${_SERVICE_WEB}" \
+          --project="${PROJECT_ID}" \
+          --region="${_REGION}" \
+          --image="$${IMAGE}" \
+          --platform=managed \
+          --allow-unauthenticated \
+          --service-account="$${WEB_SA}" \
+          --port=8080 \
+          --cpu=1 \
+          --memory=1Gi \
+          --min-instances=0 \
+          --max-instances=10 \
+          --timeout=60 \
+          --set-env-vars="^|^NODE_ENV=production|NEXT_PUBLIC_APP_URL=${_NEXT_PUBLIC_APP_URL}|EMAIL_FROM=${_EMAIL_FROM}" \
+          --set-secrets="$${SECRETS}" \
+          --quiet
+
+  # ---------------------------------------------------------------------------
+  # Deploy Cloud Run Jobs (collect + deliver)
+  # ---------------------------------------------------------------------------
+  - id: deploy-job-collect
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: bash
+    waitFor: ["push-collector"]
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        IMAGE="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/collector:${SHORT_SHA}"
+        JOBS_SA="${_JOBS_SA}@${PROJECT_ID}.iam.gserviceaccount.com"
+        gcloud run jobs deploy "${_JOB_COLLECT}" \
+          --project="${PROJECT_ID}" \
+          --region="${_REGION}" \
+          --image="$${IMAGE}" \
+          --command=collector \
+          --args=collect \
+          --tasks=1 \
+          --parallelism=1 \
+          --max-retries=1 \
+          --task-timeout=3600 \
+          --cpu=2 \
+          --memory=2Gi \
+          --service-account="$${JOBS_SA}" \
+          --set-env-vars="^|^APP_URL=${_APP_URL}|EMAIL_FROM=${_EMAIL_FROM}|OPENAI_MODEL=${_OPENAI_MODEL}|OPENAI_EMBEDDING_MODEL=${_OPENAI_EMBEDDING_MODEL}|MAX_ARTICLES_PER_SOURCE=15" \
+          --set-secrets="DATABASE_URL=astra-database-url:latest,OPENAI_API_KEY=astra-openai-api-key:latest,EXA_API_KEY=astra-exa-api-key:latest,RESEND_API_KEY=astra-resend-api-key:latest" \
+          --quiet
+
+  - id: deploy-job-deliver
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: bash
+    waitFor: ["push-collector"]
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        IMAGE="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/collector:${SHORT_SHA}"
+        JOBS_SA="${_JOBS_SA}@${PROJECT_ID}.iam.gserviceaccount.com"
+        gcloud run jobs deploy "${_JOB_DELIVER}" \
+          --project="${PROJECT_ID}" \
+          --region="${_REGION}" \
+          --image="$${IMAGE}" \
+          --command=collector \
+          --args=deliver \
+          --tasks=1 \
+          --parallelism=1 \
+          --max-retries=1 \
+          --task-timeout=900 \
+          --cpu=1 \
+          --memory=1Gi \
+          --service-account="$${JOBS_SA}" \
+          --set-env-vars="^|^APP_URL=${_APP_URL}|EMAIL_FROM=${_EMAIL_FROM}" \
+          --set-secrets="DATABASE_URL=astra-database-url:latest,RESEND_API_KEY=astra-resend-api-key:latest" \
+          --quiet
+
+  # ---------------------------------------------------------------------------
+  # Upsert Cloud Scheduler → Jobs API
+  # ---------------------------------------------------------------------------
+  - id: upsert-schedulers
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: bash
+    waitFor: ["deploy-job-collect", "deploy-job-deliver"]
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        SCHEDULER_SA="${_SCHEDULER_SA}@${PROJECT_ID}.iam.gserviceaccount.com"
+        COLLECT_URI="https://${_REGION}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${PROJECT_ID}/jobs/${_JOB_COLLECT}:run"
+        DELIVER_URI="https://${_REGION}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${PROJECT_ID}/jobs/${_JOB_DELIVER}:run"
+        AUDIENCE="https://${_REGION}-run.googleapis.com/"
+
+        upsert_scheduler() {
+          local NAME="$1"
+          local SCHEDULE="$2"
+          local URI="$3"
+          local DESC="$4"
+          if gcloud scheduler jobs describe "$${NAME}" --location="${_REGION}" --project="${PROJECT_ID}" >/dev/null 2>&1; then
+            gcloud scheduler jobs update http "$${NAME}" \
+              --project="${PROJECT_ID}" \
+              --location="${_REGION}" \
+              --schedule="$${SCHEDULE}" \
+              --time-zone="UTC" \
+              --uri="$${URI}" \
+              --http-method=POST \
+              --oidc-service-account-email="$${SCHEDULER_SA}" \
+              --oidc-token-audience="$${AUDIENCE}" \
+              --description="$${DESC}" \
+              --quiet
+          else
+            gcloud scheduler jobs create http "$${NAME}" \
+              --project="${PROJECT_ID}" \
+              --location="${_REGION}" \
+              --schedule="$${SCHEDULE}" \
+              --time-zone="UTC" \
+              --uri="$${URI}" \
+              --http-method=POST \
+              --oidc-service-account-email="$${SCHEDULER_SA}" \
+              --oidc-token-audience="$${AUDIENCE}" \
+              --description="$${DESC}" \
+              --quiet
+          fi
+        }
+
+        upsert_scheduler "astra-collect-schedule" "${_COLLECT_CRON}" "$${COLLECT_URI}" "Astra collector ingest"
+        upsert_scheduler "astra-deliver-schedule" "${_DELIVER_CRON}" "$${DELIVER_URI}" "Astra newsletter deliver"
+
+        # Ensure scheduler can invoke jobs (idempotent)
+        gcloud run jobs add-iam-policy-binding "${_JOB_COLLECT}" \
+          --project="${PROJECT_ID}" \
+          --region="${_REGION}" \
+          --member="serviceAccount:$${SCHEDULER_SA}" \
+          --role="roles/run.invoker" \
+          --quiet || true
+        gcloud run jobs add-iam-policy-binding "${_JOB_DELIVER}" \
+          --project="${PROJECT_ID}" \
+          --region="${_REGION}" \
+          --member="serviceAccount:$${SCHEDULER_SA}" \
+          --role="roles/run.invoker" \
+          --quiet || true
+
+availableSecrets:
+  secretManager:
+    - versionName: projects/${PROJECT_ID}/secrets/astra-direct-url/versions/latest
+      env: DIRECT_URL
+    - versionName: projects/${PROJECT_ID}/secrets/astra-database-url/versions/latest
+      env: DATABASE_URL

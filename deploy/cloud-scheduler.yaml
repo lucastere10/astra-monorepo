@@ -1,0 +1,65 @@
+# Cloud Scheduler jobs that trigger Cloud Run Jobs via the Jobs API.
+# Placeholders:
+#   __REGION__  __PROJECT_ID__  __JOB_COLLECT__  __JOB_DELIVER__
+#   __COLLECT_CRON__  __DELIVER_CRON__  __SCHEDULER_SA__
+#
+# Applied by cloudbuild.yaml with `gcloud scheduler jobs update/create http`.
+# OIDC audience must match the Jobs API host.
+
+# --- Collect (every 4 hours by default) ---
+# name: astra-collect-schedule
+# schedule: __COLLECT_CRON__
+# timeZone: UTC
+# httpTarget:
+#   uri: https://__REGION__-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/__PROJECT_ID__/jobs/__JOB_COLLECT__:run
+#   httpMethod: POST
+#   oidcToken:
+#     serviceAccountEmail: __SCHEDULER_SA__
+#     audience: https://__REGION__-run.googleapis.com/
+
+# --- Deliver (hourly by default) ---
+# name: astra-deliver-schedule
+# schedule: __DELIVER_CRON__
+# timeZone: UTC
+# httpTarget:
+#   uri: https://__REGION__-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/__PROJECT_ID__/jobs/__JOB_DELIVER__:run
+#   httpMethod: POST
+#   oidcToken:
+#     serviceAccountEmail: __SCHEDULER_SA__
+#     audience: https://__REGION__-run.googleapis.com/
+
+apiVersion: v1
+kind: List
+items:
+  - apiVersion: cloudscheduler.googleapis.com/v1
+    kind: Job
+    metadata:
+      name: projects/__PROJECT_ID__/locations/__REGION__/jobs/astra-collect-schedule
+    spec:
+      description: Run Astra collector ingest every few hours
+      schedule: __COLLECT_CRON__
+      timeZone: UTC
+      httpTarget:
+        uri: https://__REGION__-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/__PROJECT_ID__/jobs/__JOB_COLLECT__:run
+        httpMethod: POST
+        oidcToken:
+          serviceAccountEmail: __SCHEDULER_SA__
+          audience: https://__REGION__-run.googleapis.com/
+      retryConfig:
+        retryCount: 1
+  - apiVersion: cloudscheduler.googleapis.com/v1
+    kind: Job
+    metadata:
+      name: projects/__PROJECT_ID__/locations/__REGION__/jobs/astra-deliver-schedule
+    spec:
+      description: Run Astra newsletter deliver every hour
+      schedule: __DELIVER_CRON__
+      timeZone: UTC
+      httpTarget:
+        uri: https://__REGION__-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/__PROJECT_ID__/jobs/__JOB_DELIVER__:run
+        httpMethod: POST
+        oidcToken:
+          serviceAccountEmail: __SCHEDULER_SA__
+          audience: https://__REGION__-run.googleapis.com/
+      retryConfig:
+        retryCount: 1

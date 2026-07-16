@@ -1,0 +1,289 @@
+// Astra Newsletter database schema
+// Personalized AI & Technology Intelligence Platform
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum SourceType {
+  RSS
+  SCRAPER
+  API
+}
+
+enum Difficulty {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum NewsletterCadence {
+  DAILY
+  WEEKLY
+}
+
+enum NewsletterStatus {
+  PENDING
+  GENERATING
+  READY
+  SENT
+  FAILED
+}
+
+enum InteractionType {
+  VIEWED
+  CLICKED
+  READ
+  SAVED
+}
+
+enum AnalyticsEventType {
+  NEWSLETTER_OPENED
+  NEWSLETTER_CLICKED
+  ARTICLE_CLICKED
+  ARTICLE_READ
+  PREFERENCE_CHANGED
+  SUBSCRIPTION_CREATED
+  UNSUBSCRIBED
+}
+
+enum WorkerStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+// ---------------------------------------------------------------------------
+// Identity & Auth
+// ---------------------------------------------------------------------------
+
+model User {
+  id              String            @id @default(cuid())
+  email           String            @unique
+  name            String?
+  image           String?
+  role            Role              @default(USER)
+  emailVerified   DateTime?
+  cadence         NewsletterCadence @default(WEEKLY)
+  sendHour        Int               @default(8)
+  timezone        String            @default("America/Sao_Paulo")
+  autoSendEnabled Boolean           @default(true)
+  weeklySendDay   Int               @default(1)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  preferences  UserPreference[]
+  newsletters  Newsletter[]
+  interactions UserArticleInteraction[]
+  events       AnalyticsEvent[]
+
+  @@index([role])
+  @@index([autoSendEnabled])
+}
+
+// Single-use magic-link tokens. The stored `token` is a SHA-256 hash.
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+  createdAt  DateTime @default(now())
+
+  @@id([identifier, token])
+  @@index([identifier])
+}
+
+// ---------------------------------------------------------------------------
+// Topics & Preferences
+// ---------------------------------------------------------------------------
+
+model Topic {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+
+  preferences   UserPreference[]
+  articleTopics ArticleTopic[]
+}
+
+model UserPreference {
+  id        String   @id @default(cuid())
+  userId    String
+  topicId   String
+  weight    Float    @default(1.0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  topic Topic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, topicId])
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Content
+// ---------------------------------------------------------------------------
+
+model NewsSource {
+  id            String     @id @default(cuid())
+  name          String
+  url           String     @unique
+  type          SourceType @default(RSS)
+  isActive      Boolean    @default(true)
+  config        Json?
+  lastFetchedAt DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  articles Article[]
+
+  @@index([isActive])
+}
+
+model Article {
+  id               String      @id @default(cuid())
+  url              String      @unique
+  title            String
+  summary          String?
+  content          String?
+  keywords         String[]    @default([])
+  embedding        Float[]     @default([])
+  readingTimeMin   Int?
+  difficulty       Difficulty?
+  globalScore      Float       @default(0)
+  duplicateCluster String?
+  entities         String[]    @default([])
+  publishedAt      DateTime?
+  sourceId         String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  source             NewsSource?              @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  topics             ArticleTopic[]
+  newsletterArticles NewsletterArticle[]
+  interactions       UserArticleInteraction[]
+
+  @@index([globalScore])
+  @@index([publishedAt])
+  @@index([duplicateCluster])
+}
+
+model ArticleTopic {
+  id        String @id @default(cuid())
+  articleId String
+  topicId   String
+  relevance Float  @default(0)
+
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  topic   Topic   @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  @@unique([articleId, topicId])
+  @@index([topicId])
+}
+
+// ---------------------------------------------------------------------------
+// Newsletter
+// ---------------------------------------------------------------------------
+
+model Newsletter {
+  id          String            @id @default(cuid())
+  userId      String
+  subject     String
+  intro       String?
+  htmlContent String?
+  status      NewsletterStatus  @default(PENDING)
+  cadence     NewsletterCadence @default(WEEKLY)
+  sentAt      DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  user     User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  articles NewsletterArticle[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([cadence])
+}
+
+model NewsletterArticle {
+  id           String  @id @default(cuid())
+  newsletterId String
+  articleId    String
+  rank         Int
+  reason       String?
+  trackedUrl   String?
+
+  newsletter Newsletter @relation(fields: [newsletterId], references: [id], onDelete: Cascade)
+  article    Article    @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@unique([newsletterId, articleId])
+  @@index([newsletterId])
+}
+
+// ---------------------------------------------------------------------------
+// Analytics & Engagement
+// ---------------------------------------------------------------------------
+
+model UserArticleInteraction {
+  id        String          @id @default(cuid())
+  userId    String
+  articleId String
+  type      InteractionType
+  createdAt DateTime        @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([articleId])
+  @@index([type])
+}
+
+model AnalyticsEvent {
+  id        String             @id @default(cuid())
+  userId    String?
+  type      AnalyticsEventType
+  metadata  Json?
+  createdAt DateTime           @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([type])
+  @@index([createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Worker observability
+// ---------------------------------------------------------------------------
+
+model WorkerExecution {
+  id             String       @id @default(cuid())
+  workerName     String
+  status         WorkerStatus @default(RUNNING)
+  itemsProcessed Int          @default(0)
+  logs           String?
+  error          String?
+  startedAt      DateTime     @default(now())
+  finishedAt     DateTime?
+
+  @@index([workerName])
+  @@index([status])
+  @@index([startedAt])
+}

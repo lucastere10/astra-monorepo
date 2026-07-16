@@ -1,0 +1,24 @@
+[project]
+name = "astra-collector"
+version = "0.0.1"
+description = "Astra worker: collects, enriches, embeds, scores, and delivers newsletters."
+requires-python = ">=3.11"
+dependencies = [
+    "feedparser>=6.0.11",
+    "beautifulsoup4>=4.12.3",
+    "requests>=2.32.3",
+    "SQLAlchemy>=2.0.36",
+    "psycopg2-binary>=2.9.10",
+    "python-dotenv>=1.0.1",
+    "openai>=1.54.0",
+]
+
+[project.scripts]
+collector = "collector.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"

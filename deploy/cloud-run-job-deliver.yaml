@@ -1,0 +1,52 @@
+# Cloud Run Job — collector deliver (auto-send newsletters)
+# Placeholders: __JOB_NAME__  __IMAGE__  __REGION__  __APP_URL__  __EMAIL_FROM__
+#               __SERVICE_ACCOUNT__
+#
+# Container args override the image default (`collect`) to run `deliver`.
+
+apiVersion: run.googleapis.com/v1
+kind: Job
+metadata:
+  name: __JOB_NAME__
+  labels:
+    cloud.googleapis.com/location: __REGION__
+  annotations:
+    run.googleapis.com/launch-stage: GA
+spec:
+  template:
+    metadata:
+      annotations:
+        run.googleapis.com/execution-environment: gen2
+    spec:
+      taskCount: 1
+      parallelism: 1
+      template:
+        spec:
+          maxRetries: 1
+          timeoutSeconds: "900"
+          serviceAccountName: __SERVICE_ACCOUNT__
+          containers:
+            - image: __IMAGE__
+              command:
+                - collector
+              args:
+                - deliver
+              resources:
+                limits:
+                  cpu: "1"
+                  memory: 1Gi
+              env:
+                - name: APP_URL
+                  value: __APP_URL__
+                - name: EMAIL_FROM
+                  value: __EMAIL_FROM__
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: astra-database-url
+                      key: latest
+                - name: RESEND_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: astra-resend-api-key
+                      key: latest

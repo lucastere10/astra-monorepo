@@ -1,0 +1,87 @@
+# Cloud Run Service — Astra web (Next.js)
+# Placeholders are replaced by Cloud Build / deploy scripts:
+#   __SERVICE_NAME__  __IMAGE__  __REGION__  __PROJECT_ID__
+#   __NEXT_PUBLIC_APP_URL__  __EMAIL_FROM__
+#
+# Prefer applying via cloudbuild.yaml (gcloud run deploy). This file documents
+# the desired shape and can be used with:
+#   envsubst < deploy/cloud-run-web.yaml | gcloud run services replace - --region=$REGION
+
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: __SERVICE_NAME__
+  labels:
+    cloud.googleapis.com/location: __REGION__
+  annotations:
+    run.googleapis.com/ingress: all
+    run.googleapis.com/launch-stage: GA
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "0"
+        autoscaling.knative.dev/maxScale: "10"
+        run.googleapis.com/cpu-throttling: "true"
+        run.googleapis.com/startup-cpu-boost: "true"
+    spec:
+      containerConcurrency: 80
+      timeoutSeconds: 60
+      containers:
+        - image: __IMAGE__
+          ports:
+            - name: http1
+              containerPort: 8080
+          resources:
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: PORT
+              value: "8080"
+            - name: NEXT_PUBLIC_APP_URL
+              value: __NEXT_PUBLIC_APP_URL__
+            - name: EMAIL_FROM
+              value: __EMAIL_FROM__
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: astra-database-url
+                  key: latest
+            - name: DIRECT_URL
+              valueFrom:
+                secretKeyRef:
+                  name: astra-direct-url
+                  key: latest
+            - name: SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: astra-session-secret
+                  key: latest
+            - name: RESEND_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: astra-resend-api-key
+                  key: latest
+            # Optional — omit REDIS_URL secret if unused; app degrades without cache.
+            # - name: REDIS_URL
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: REDIS_URL
+            #       key: latest
+          startupProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 0
+            periodSeconds: 2
+            failureThreshold: 30
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            periodSeconds: 15
+            timeoutSeconds: 3

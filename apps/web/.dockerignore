@@ -1,0 +1,12 @@
+# Used when building with context apps/web. Prefer monorepo-root builds:
+#   docker build -f apps/web/Dockerfile -t astra-web .
+# In that case the root .dockerignore applies.
+node_modules
+.next
+.turbo
+.env
+.env.*
+!.env.example
+*.log
+*.tsbuildinfo
+next-env.d.ts
