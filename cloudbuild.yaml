@@ -4,8 +4,8 @@
 # Secrets are mounted from Secret Manager at deploy time.
 
 substitutions:
-  _REGION: southamerica-east1
-  _AR_REPO: astra
+  _REGION: us-central1
+  _AR_REPO: astra-images
   _SERVICE_WEB: astra-web
   _JOB_COLLECT: astra-collect
   _JOB_DELIVER: astra-deliver

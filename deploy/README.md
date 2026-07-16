@@ -28,8 +28,8 @@ gcloud services enable \
 ### 2. Artifact Registry
 
 ```bash
-REGION=southamerica-east1
-gcloud artifacts repositories create astra \
+REGION=us-central1
+gcloud artifacts repositories create astra-images \
   --repository-format=docker \
   --location="$REGION" \
   --description="Astra Newsletter images"
@@ -63,23 +63,23 @@ CLOUDTASKS_SA="cloud-tasks-sa@${PROJECT_ID}.iam.gserviceaccount.com"
 SCHEDULER_SA="scheduler-sa@${PROJECT_ID}.iam.gserviceaccount.com"
 
 # Cloud Build needs to deploy Run + manage Scheduler + act as runtime SA
-gcloud projects add-iam-policy-binding "$PROJECT_ID" \
-  --member="serviceAccount:${CLOUDBUILD_SA}" \
+gcloud projects add-iam-policy-binding "$PROJECT_ID" `
+  --member="serviceAccount:${CLOUDBUILD_SA}" `
   --role="roles/run.admin"
-gcloud projects add-iam-policy-binding "$PROJECT_ID" \
-  --member="serviceAccount:${CLOUDBUILD_SA}" \
+gcloud projects add-iam-policy-binding "$PROJECT_ID" `
+  --member="serviceAccount:${CLOUDBUILD_SA}" `
   --role="roles/cloudscheduler.admin"
-gcloud projects add-iam-policy-binding "$PROJECT_ID" \
-  --member="serviceAccount:${CLOUDBUILD_SA}" \
+gcloud projects add-iam-policy-binding "$PROJECT_ID" `
+  --member="serviceAccount:${CLOUDBUILD_SA}" `
   --role="roles/artifactregistry.writer"
-gcloud projects add-iam-policy-binding "$PROJECT_ID" \
-  --member="serviceAccount:${CLOUDBUILD_SA}" \
+gcloud projects add-iam-policy-binding "$PROJECT_ID" `
+  --member="serviceAccount:${CLOUDBUILD_SA}" `
   --role="roles/iam.serviceAccountUser"
-gcloud projects add-iam-policy-binding "$PROJECT_ID" \
-  --member="serviceAccount:${CLOUDBUILD_SA}" \
+gcloud projects add-iam-policy-binding "$PROJECT_ID" `
+  --member="serviceAccount:${CLOUDBUILD_SA}" `
   --role="roles/secretmanager.secretAccessor"
-gcloud projects add-iam-policy-binding "$PROJECT_ID" \
-  --member="serviceAccount:${CLOUDBUILD_SA}" \
+gcloud projects add-iam-policy-binding "$PROJECT_ID" `
+  --member="serviceAccount:${CLOUDBUILD_SA}" `
   --role="roles/logging.logWriter"
 
 # Scheduler can invoke Jobs
@@ -92,14 +92,14 @@ Point the Cloud Build trigger at `cloud-build-sa` (Service account →
 After the first successful deploy of the jobs:
 
 ```bash
-gcloud run jobs add-iam-policy-binding astra-collect \
-  --region="$REGION" \
-  --member="serviceAccount:${SCHEDULER_SA}" \
+gcloud run jobs add-iam-policy-binding astra-collect `
+  --region="$REGION" `
+  --member="serviceAccount:${SCHEDULER_SA}" `
   --role="roles/run.invoker"
 
-gcloud run jobs add-iam-policy-binding astra-deliver \
-  --region="$REGION" \
-  --member="serviceAccount:${SCHEDULER_SA}" \
+gcloud run jobs add-iam-policy-binding astra-deliver `
+  --region="$REGION" `
+  --member="serviceAccount:${SCHEDULER_SA}" `
   --role="roles/run.invoker"
 ```
 
