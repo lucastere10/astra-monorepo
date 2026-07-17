@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server"
 import { prisma } from "@workspace/database"
 import { DOMAIN_EVENTS } from "@workspace/shared/events"
 
+import { getAppUrl } from "@/lib/app-url"
 import { dispatchEvent } from "@/lib/events"
 import {
   recordInteraction,
@@ -12,7 +13,7 @@ import {
 export async function GET(request: NextRequest) {
   const newsletterId = request.nextUrl.searchParams.get("n")
   const articleId = request.nextUrl.searchParams.get("a")
-  const origin = request.nextUrl.origin
+  const origin = getAppUrl(request.nextUrl.origin)
 
   if (!articleId) {
     return NextResponse.redirect(new URL("/", origin))

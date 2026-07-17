@@ -73,19 +73,23 @@ enum WorkerStatus {
 // ---------------------------------------------------------------------------
 
 model User {
-  id              String            @id @default(cuid())
-  email           String            @unique
-  name            String?
-  image           String?
-  role            Role              @default(USER)
-  emailVerified   DateTime?
-  cadence         NewsletterCadence @default(WEEKLY)
-  sendHour        Int               @default(8)
-  timezone        String            @default("America/Sao_Paulo")
-  autoSendEnabled Boolean           @default(true)
-  weeklySendDay   Int               @default(1)
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  id               String   @id @default(cuid())
+  email            String   @unique
+  name             String?
+  image            String?
+  role             Role     @default(USER)
+  emailVerified    DateTime?
+  timezone         String   @default("America/Sao_Paulo")
+  autoSendEnabled  Boolean  @default(true)
+  dailyEnabled     Boolean  @default(false)
+  dailySendHour    Int      @default(8)
+  dailySendDays    Int[]    @default([0, 1, 2, 3, 4, 5, 6])
+  weeklyEnabled    Boolean  @default(true)
+  weeklySendHour   Int      @default(8)
+  weeklySendDay    Int      @default(1)
+  unsubscribeToken String   @unique @default(cuid())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   preferences  UserPreference[]
   newsletters  Newsletter[]

@@ -4,10 +4,7 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 
 import { prisma } from "@workspace/database"
-import {
-  COMMON_TIMEZONES,
-  NEWSLETTER_CADENCES,
-} from "@workspace/shared/cadence"
+import { COMMON_TIMEZONES } from "@workspace/shared/cadence"
 import { MAX_TOPIC_WEIGHT, MIN_TOPIC_WEIGHT } from "@workspace/shared/topics"
 import { DOMAIN_EVENTS } from "@workspace/shared/events"
 
@@ -24,13 +21,33 @@ const preferenceSchema = z.object({
   weight: z.number().min(MIN_TOPIC_WEIGHT).max(MAX_TOPIC_WEIGHT),
 })
 
-const deliverySchema = z.object({
-  cadence: z.enum(NEWSLETTER_CADENCES),
-  sendHour: z.number().int().min(0).max(23),
-  timezone: z.string().min(1),
-  autoSendEnabled: z.boolean(),
-  weeklySendDay: z.number().int().min(0).max(6),
-})
+const deliverySchema = z
+  .object({
+    timezone: z.string().min(1),
+    autoSendEnabled: z.boolean(),
+    dailyEnabled: z.boolean(),
+    dailySendHour: z.number().int().min(0).max(23),
+    dailySendDays: z.array(z.number().int().min(0).max(6)),
+    weeklyEnabled: z.boolean(),
+    weeklySendHour: z.number().int().min(0).max(23),
+    weeklySendDay: z.number().int().min(0).max(6),
+  })
+  .superRefine((data, ctx) => {
+    if (data.autoSendEnabled && !data.dailyEnabled && !data.weeklyEnabled) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Enable daily, weekly, or turn off automatic email.",
+        path: ["autoSendEnabled"],
+      })
+    }
+    if (data.dailyEnabled && data.dailySendDays.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Pick at least one day for the daily digest.",
+        path: ["dailySendDays"],
+      })
+    }
+  })
 
 const payloadSchema = z.object({
   preferences: z.array(preferenceSchema),
@@ -69,7 +86,10 @@ export async function savePreferences(
   })
 
   if (!result.success) {
-    return { error: "Please review your topics and delivery settings." }
+    const first = result.error.issues[0]?.message
+    return {
+      error: first ?? "Please review your topics and delivery settings.",
+    }
   }
 
   const timezoneOk =
@@ -81,8 +101,15 @@ export async function savePreferences(
     return { error: "Please choose a valid timezone." }
   }
 
+  const uniqueDays = [...new Set(result.data.delivery.dailySendDays)].sort(
+    (a, b) => a - b
+  )
+
   await replaceUserPreferences(user.id, result.data.preferences)
-  await updateDeliverySettings(user.id, result.data.delivery)
+  await updateDeliverySettings(user.id, {
+    ...result.data.delivery,
+    dailySendDays: uniqueDays,
+  })
 
   await prisma.analyticsEvent.create({
     data: { userId: user.id, type: "PREFERENCE_CHANGED" },

@@ -14,7 +14,9 @@ export const MAX_DAILY_ARTICLES = 5
 export const DEFAULT_SEND_HOUR = 8
 export const DEFAULT_TIMEZONE = "America/Sao_Paulo"
 export const DEFAULT_WEEKLY_SEND_DAY = 1 // Monday
-export const DEFAULT_CADENCE: NewsletterCadence = "WEEKLY"
+export const DEFAULT_DAILY_ENABLED = false
+export const DEFAULT_WEEKLY_ENABLED = true
+export const DEFAULT_DAILY_SEND_DAYS = [0, 1, 2, 3, 4, 5, 6] as const
 
 /** Slightly higher diversity penalty for short digests. */
 export const DIVERSITY_PENALTY_BY_CADENCE: Record<NewsletterCadence, number> = {
@@ -30,6 +32,16 @@ export function articleLimitForCadence(cadence: NewsletterCadence): number {
     )
   }
   return CADENCE_ARTICLE_LIMIT.WEEKLY
+}
+
+/** Prefer weekly when both (or neither) are enabled — richer on-demand edition. */
+export function inferCadenceForGenerate(options: {
+  weeklyEnabled: boolean
+  dailyEnabled: boolean
+}): NewsletterCadence {
+  if (options.weeklyEnabled) return "WEEKLY"
+  if (options.dailyEnabled) return "DAILY"
+  return "WEEKLY"
 }
 
 export { brandingLabel } from "./branding"

@@ -19,7 +19,7 @@ substitutions:
   _APP_URL: "https://astra.caldasdev.com.br"
   _OPENAI_MODEL: gpt-4o-mini
   _OPENAI_EMBEDDING_MODEL: text-embedding-3-small
-  _COLLECT_CRON: "0 */4 * * *"
+  _COLLECT_CRON: "0 6 * * *"
   _DELIVER_CRON: "0 * * * *"
 
   # Set to "true" only after creating the REDIS_URL secret.

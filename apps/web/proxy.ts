@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
 
+import { getAppUrl } from "@/lib/app-url"
 import { decryptSession, SESSION_COOKIE } from "@/modules/auth/session-token"
 
 const PROTECTED_PREFIXES = ["/dashboard", "/preferences", "/newsletters", "/admin"]
@@ -21,12 +22,14 @@ export async function proxy(request: NextRequest) {
   const session = await decryptSession(token)
 
   if (isProtected && !session?.userId) {
-    const loginUrl = new URL("/login", request.nextUrl.origin)
+    const loginUrl = new URL("/login", getAppUrl(request.nextUrl.origin))
     return NextResponse.redirect(loginUrl)
   }
 
   if (isAuthRoute && session?.userId) {
-    return NextResponse.redirect(new URL("/dashboard", request.nextUrl.origin))
+    return NextResponse.redirect(
+      new URL("/dashboard", getAppUrl(request.nextUrl.origin))
+    )
   }
 
   return NextResponse.next()
