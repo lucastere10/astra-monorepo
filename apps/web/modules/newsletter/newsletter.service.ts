@@ -6,21 +6,19 @@ import { prisma } from "@workspace/database"
 import {
   articleLimitForCadence,
   brandingLabel,
+  inferCadenceForGenerate,
   type NewsletterCadence,
 } from "@workspace/shared/cadence"
 import { BRAND_NAME, BRAND_PRODUCT } from "@workspace/shared/branding"
 import { DOMAIN_EVENTS } from "@workspace/shared/events"
 
+import { getAppUrl } from "@/lib/app-url"
 import { dispatchEvent } from "@/lib/events"
 import { rankArticlesForUser } from "@/modules/recommendation/recommendation.service"
 import {
   renderNewsletterHtml,
   type NewsletterArticleView,
 } from "./newsletter.generator"
-
-function appUrl(): string {
-  return process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
-}
 
 function buildSubject(trending: string | null): string {
   const date = new Date().toLocaleDateString("en-US", {
@@ -41,11 +39,19 @@ export async function generateNewsletterForUser(
 ): Promise<string | null> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { email: true, cadence: true },
+    select: {
+      email: true,
+      dailyEnabled: true,
+      weeklyEnabled: true,
+      unsubscribeToken: true,
+    },
   })
   if (!user) return null
 
-  const cadence = user.cadence as NewsletterCadence
+  const cadence: NewsletterCadence = inferCadenceForGenerate({
+    weeklyEnabled: user.weeklyEnabled,
+    dailyEnabled: user.dailyEnabled,
+  })
   const limit = articleLimitForCadence(cadence)
   const ranked = await rankArticlesForUser(userId, { limit, cadence })
   if (ranked.length === 0) return null
@@ -91,7 +97,7 @@ export async function generateNewsletterForUser(
   })
 
   const trackedUrlFor = (articleId: string) =>
-    `${appUrl()}/api/track/click?n=${newsletter.id}&a=${articleId}`
+    `${getAppUrl()}/api/track/click?n=${newsletter.id}&a=${articleId}`
 
   await prisma.newsletterArticle.createMany({
     data: ranked.map((r, index) => ({
@@ -123,6 +129,9 @@ export async function generateNewsletterForUser(
   const toolOfTheWeek =
     views.find((v) => v.topics.includes("Developer Tools")) ?? views[0] ?? null
 
+  const appUrl = getAppUrl()
+  const unsubscribeUrl = `${appUrl}/unsubscribe?t=${user.unsubscribeToken}`
+
   const html = renderNewsletterHtml({
     subject,
     intro,
@@ -130,8 +139,8 @@ export async function generateNewsletterForUser(
     trendingTopic,
     toolOfTheWeek,
     branding: brandingLabel(cadence),
-    openPixelUrl: `${appUrl()}/api/track/open?n=${newsletter.id}`,
-    unsubscribeUrl: `${appUrl()}/preferences`,
+    openPixelUrl: `${appUrl}/api/track/open?n=${newsletter.id}`,
+    unsubscribeUrl,
     recipientEmail: user.email,
   })
 
@@ -152,7 +161,9 @@ export async function generateNewsletterForUser(
 export async function sendNewsletter(newsletterId: string): Promise<void> {
   const newsletter = await prisma.newsletter.findUnique({
     where: { id: newsletterId },
-    include: { user: { select: { email: true } } },
+    include: {
+      user: { select: { email: true, unsubscribeToken: true } },
+    },
   })
 
   if (!newsletter || !newsletter.htmlContent) {
@@ -168,11 +179,16 @@ export async function sendNewsletter(newsletterId: string): Promise<void> {
     const resend = new Resend(apiKey)
     const from =
       process.env.EMAIL_FROM ?? `${BRAND_PRODUCT} <onboarding@resend.dev>`
+    const listUnsubscribeUrl = `${getAppUrl()}/api/unsubscribe?t=${newsletter.user.unsubscribeToken}`
     const { error } = await resend.emails.send({
       from,
       to: newsletter.user.email,
       subject: newsletter.subject,
       html: newsletter.htmlContent,
+      headers: {
+        "List-Unsubscribe": `<${listUnsubscribeUrl}>`,
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+      },
     })
     if (error) {
       await prisma.newsletter.update({

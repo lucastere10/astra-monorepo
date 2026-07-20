@@ -2,12 +2,14 @@ import { NextResponse, type NextRequest } from "next/server"
 
 import { prisma } from "@workspace/database"
 
+import { getAppUrl } from "@/lib/app-url"
 import { consumeMagicLinkToken } from "@/modules/auth/tokens"
 import { createSession } from "@/modules/auth/session"
 
 export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get("token")
-  const loginUrl = new URL("/login", request.nextUrl.origin)
+  const base = getAppUrl(request.nextUrl.origin)
+  const loginUrl = new URL("/login", base)
 
   if (!token) {
     loginUrl.searchParams.set("error", "missing-token")
@@ -45,5 +47,5 @@ export async function GET(request: NextRequest) {
 
   await createSession(user)
 
-  return NextResponse.redirect(new URL("/dashboard", request.nextUrl.origin))
+  return NextResponse.redirect(new URL("/dashboard", base))
 }

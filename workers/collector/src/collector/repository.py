@@ -238,21 +238,30 @@ def finish_worker(
 class DeliveryUser:
     id: str
     email: str
-    cadence: str
-    send_hour: int
     timezone: str
     auto_send_enabled: bool
+    daily_enabled: bool
+    daily_send_hour: int
+    daily_send_days: list[int]
+    weekly_enabled: bool
+    weekly_send_hour: int
     weekly_send_day: int
+    unsubscribe_token: str
 
 
 def fetch_auto_send_users(conn: Connection) -> list[DeliveryUser]:
     rows = conn.execute(
         text(
             '''
-            SELECT u.id, u.email, u.cadence, u."sendHour", u.timezone,
-                   u."autoSendEnabled", u."weeklySendDay"
+            SELECT u.id, u.email, u.timezone, u."autoSendEnabled",
+                   u."dailyEnabled", u."dailySendHour", u."dailySendDays",
+                   u."weeklyEnabled", u."weeklySendHour", u."weeklySendDay",
+                   u."unsubscribeToken"
             FROM "User" u
             WHERE u."autoSendEnabled" = true
+              AND (
+                u."dailyEnabled" = true OR u."weeklyEnabled" = true
+              )
               AND EXISTS (
                 SELECT 1 FROM "UserPreference" p WHERE p."userId" = u.id
               )
@@ -263,11 +272,15 @@ def fetch_auto_send_users(conn: Connection) -> list[DeliveryUser]:
         DeliveryUser(
             id=r[0],
             email=r[1],
-            cadence=str(r[2]),
-            send_hour=int(r[3]),
-            timezone=r[4],
-            auto_send_enabled=bool(r[5]),
-            weekly_send_day=int(r[6]),
+            timezone=r[2],
+            auto_send_enabled=bool(r[3]),
+            daily_enabled=bool(r[4]),
+            daily_send_hour=int(r[5]),
+            daily_send_days=[int(d) for d in (r[6] or [])],
+            weekly_enabled=bool(r[7]),
+            weekly_send_hour=int(r[8]),
+            weekly_send_day=int(r[9]),
+            unsubscribe_token=str(r[10]),
         )
         for r in rows
     ]

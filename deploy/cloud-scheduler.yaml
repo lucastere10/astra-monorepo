@@ -4,7 +4,8 @@
 #   __COLLECT_CRON__  __DELIVER_CRON__  __SCHEDULER_SA__
 #
 # Applied by cloudbuild.yaml with `gcloud scheduler jobs update/create http`.
-# OIDC audience must match the Jobs API host.
+# The Jobs Admin API (*.run.googleapis.com) expects an OAuth access token,
+# not an OIDC ID token.
 
 # --- Collect (every 4 hours by default) ---
 # name: astra-collect-schedule
@@ -13,20 +14,20 @@
 # httpTarget:
 #   uri: https://__REGION__-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/__PROJECT_ID__/jobs/__JOB_COLLECT__:run
 #   httpMethod: POST
-#   oidcToken:
+#   oauthToken:
 #     serviceAccountEmail: __SCHEDULER_SA__
-#     audience: https://__REGION__-run.googleapis.com/
+#     scope: https://www.googleapis.com/auth/cloud-platform
 
-# --- Deliver (hourly by default) ---
+# --- Deliver (3 min before morning / midday / evening, America/Sao_Paulo) ---
 # name: astra-deliver-schedule
 # schedule: __DELIVER_CRON__
-# timeZone: UTC
+# timeZone: America/Sao_Paulo
 # httpTarget:
 #   uri: https://__REGION__-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/__PROJECT_ID__/jobs/__JOB_DELIVER__:run
 #   httpMethod: POST
-#   oidcToken:
+#   oauthToken:
 #     serviceAccountEmail: __SCHEDULER_SA__
-#     audience: https://__REGION__-run.googleapis.com/
+#     scope: https://www.googleapis.com/auth/cloud-platform
 
 apiVersion: v1
 kind: List
@@ -42,9 +43,9 @@ items:
       httpTarget:
         uri: https://__REGION__-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/__PROJECT_ID__/jobs/__JOB_COLLECT__:run
         httpMethod: POST
-        oidcToken:
+        oauthToken:
           serviceAccountEmail: __SCHEDULER_SA__
-          audience: https://__REGION__-run.googleapis.com/
+          scope: https://www.googleapis.com/auth/cloud-platform
       retryConfig:
         retryCount: 1
   - apiVersion: cloudscheduler.googleapis.com/v1
@@ -52,14 +53,14 @@ items:
     metadata:
       name: projects/__PROJECT_ID__/locations/__REGION__/jobs/astra-deliver-schedule
     spec:
-      description: Run Astra newsletter deliver every hour
+      description: Run Astra newsletter deliver 3 min before morning, midday, and evening
       schedule: __DELIVER_CRON__
-      timeZone: UTC
+      timeZone: America/Sao_Paulo
       httpTarget:
         uri: https://__REGION__-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/__PROJECT_ID__/jobs/__JOB_DELIVER__:run
         httpMethod: POST
-        oidcToken:
+        oauthToken:
           serviceAccountEmail: __SCHEDULER_SA__
-          audience: https://__REGION__-run.googleapis.com/
+          scope: https://www.googleapis.com/auth/cloud-platform
       retryConfig:
         retryCount: 1

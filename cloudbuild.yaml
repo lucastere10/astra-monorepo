@@ -4,8 +4,8 @@
 # Secrets are mounted from Secret Manager at deploy time.
 
 substitutions:
-  _REGION: southamerica-east1
-  _AR_REPO: astra
+  _REGION: us-central1
+  _AR_REPO: astra-images
   _SERVICE_WEB: astra-web
   _JOB_COLLECT: astra-collect
   _JOB_DELIVER: astra-deliver
@@ -15,12 +15,14 @@ substitutions:
   _EMAIL_FROM: "Astra Newsletter <onboarding@caldasdev.com.br>"
 
   # Set to the Cloud Run URL (or custom domain) after first deploy / in the trigger.
-  _NEXT_PUBLIC_APP_URL: "https://newsletter-ai.caldasdev.com.br"
-  _APP_URL: "https://newsletter-ai.caldasdev.com.br"
+  _NEXT_PUBLIC_APP_URL: "https://astra.caldasdev.com.br"
+  _APP_URL: "https://astra.caldasdev.com.br"
   _OPENAI_MODEL: gpt-4o-mini
   _OPENAI_EMBEDDING_MODEL: text-embedding-3-small
-  _COLLECT_CRON: "0 */4 * * *"
-  _DELIVER_CRON: "0 * * * *"
+  _COLLECT_CRON: "0 7 * * *"
+  # 3 min before morning / midday / evening (America/Sao_Paulo).
+  _DELIVER_CRON: "57 7,11,17 * * *"
+  _DELIVER_TIMEZONE: America/Sao_Paulo
 
   # Set to "true" only after creating the REDIS_URL secret.
   _ENABLE_REDIS: "false"
@@ -212,23 +214,25 @@ steps:
         SCHEDULER_SA="${_SCHEDULER_SA}@${PROJECT_ID}.iam.gserviceaccount.com"
         COLLECT_URI="https://${_REGION}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${PROJECT_ID}/jobs/${_JOB_COLLECT}:run"
         DELIVER_URI="https://${_REGION}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${PROJECT_ID}/jobs/${_JOB_DELIVER}:run"
-        AUDIENCE="https://${_REGION}-run.googleapis.com/"
 
         upsert_scheduler() {
           local NAME="$1"
           local SCHEDULE="$2"
           local URI="$3"
           local DESC="$4"
+          local TZ="$5"
+          # Jobs Admin API (*.run.googleapis.com) requires an OAuth access token,
+          # not an OIDC ID token (OIDC → 401 UNAUTHENTICATED).
           if gcloud scheduler jobs describe "$${NAME}" --location="${_REGION}" --project="${PROJECT_ID}" >/dev/null 2>&1; then
             gcloud scheduler jobs update http "$${NAME}" \
               --project="${PROJECT_ID}" \
               --location="${_REGION}" \
               --schedule="$${SCHEDULE}" \
-              --time-zone="UTC" \
+              --time-zone="$${TZ}" \
               --uri="$${URI}" \
               --http-method=POST \
-              --oidc-service-account-email="$${SCHEDULER_SA}" \
-              --oidc-token-audience="$${AUDIENCE}" \
+              --oauth-service-account-email="$${SCHEDULER_SA}" \
+              --oauth-token-scope="https://www.googleapis.com/auth/cloud-platform" \
               --description="$${DESC}" \
               --quiet
           else
@@ -236,18 +240,18 @@ steps:
               --project="${PROJECT_ID}" \
               --location="${_REGION}" \
               --schedule="$${SCHEDULE}" \
-              --time-zone="UTC" \
+              --time-zone="$${TZ}" \
               --uri="$${URI}" \
               --http-method=POST \
-              --oidc-service-account-email="$${SCHEDULER_SA}" \
-              --oidc-token-audience="$${AUDIENCE}" \
+              --oauth-service-account-email="$${SCHEDULER_SA}" \
+              --oauth-token-scope="https://www.googleapis.com/auth/cloud-platform" \
               --description="$${DESC}" \
               --quiet
           fi
         }
 
-        upsert_scheduler "astra-collect-schedule" "${_COLLECT_CRON}" "$${COLLECT_URI}" "Astra collector ingest"
-        upsert_scheduler "astra-deliver-schedule" "${_DELIVER_CRON}" "$${DELIVER_URI}" "Astra newsletter deliver"
+        upsert_scheduler "astra-collect-schedule" "${_COLLECT_CRON}" "$${COLLECT_URI}" "Astra collector ingest" "UTC"
+        upsert_scheduler "astra-deliver-schedule" "${_DELIVER_CRON}" "$${DELIVER_URI}" "Astra newsletter deliver (3 min before morning/midday/evening)" "${_DELIVER_TIMEZONE}"
 
         # Ensure scheduler can invoke jobs (idempotent)
         gcloud run jobs add-iam-policy-binding "${_JOB_COLLECT}" \

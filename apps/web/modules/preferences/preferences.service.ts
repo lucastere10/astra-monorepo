@@ -1,12 +1,14 @@
 import "server-only"
 
 import { prisma } from "@workspace/database"
-import type { NewsletterCadence } from "@workspace/shared/cadence"
 import {
-  DEFAULT_CADENCE,
+  DEFAULT_DAILY_ENABLED,
+  DEFAULT_DAILY_SEND_DAYS,
   DEFAULT_SEND_HOUR,
   DEFAULT_TIMEZONE,
+  DEFAULT_WEEKLY_ENABLED,
   DEFAULT_WEEKLY_SEND_DAY,
+  nearestSendHourPreset,
 } from "@workspace/shared/cadence"
 
 export interface TopicPreference {
@@ -19,10 +21,13 @@ export interface TopicPreference {
 }
 
 export interface DeliverySettings {
-  cadence: NewsletterCadence
-  sendHour: number
   timezone: string
   autoSendEnabled: boolean
+  dailyEnabled: boolean
+  dailySendHour: number
+  dailySendDays: number[]
+  weeklyEnabled: boolean
+  weeklySendHour: number
   weeklySendDay: number
 }
 
@@ -55,19 +60,31 @@ export async function getDeliverySettings(
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
-      cadence: true,
-      sendHour: true,
       timezone: true,
       autoSendEnabled: true,
+      dailyEnabled: true,
+      dailySendHour: true,
+      dailySendDays: true,
+      weeklyEnabled: true,
+      weeklySendHour: true,
       weeklySendDay: true,
     },
   })
 
   return {
-    cadence: (user?.cadence as NewsletterCadence) ?? DEFAULT_CADENCE,
-    sendHour: user?.sendHour ?? DEFAULT_SEND_HOUR,
-    timezone: user?.timezone ?? DEFAULT_TIMEZONE,
+    timezone: DEFAULT_TIMEZONE,
     autoSendEnabled: user?.autoSendEnabled ?? true,
+    dailyEnabled: user?.dailyEnabled ?? DEFAULT_DAILY_ENABLED,
+    dailySendHour: nearestSendHourPreset(
+      user?.dailySendHour ?? DEFAULT_SEND_HOUR
+    ),
+    dailySendDays: user?.dailySendDays?.length
+      ? user.dailySendDays
+      : [...DEFAULT_DAILY_SEND_DAYS],
+    weeklyEnabled: user?.weeklyEnabled ?? DEFAULT_WEEKLY_ENABLED,
+    weeklySendHour: nearestSendHourPreset(
+      user?.weeklySendHour ?? DEFAULT_SEND_HOUR
+    ),
     weeklySendDay: user?.weeklySendDay ?? DEFAULT_WEEKLY_SEND_DAY,
   }
 }
@@ -101,10 +118,13 @@ export async function updateDeliverySettings(
   await prisma.user.update({
     where: { id: userId },
     data: {
-      cadence: settings.cadence,
-      sendHour: settings.sendHour,
       timezone: settings.timezone,
       autoSendEnabled: settings.autoSendEnabled,
+      dailyEnabled: settings.dailyEnabled,
+      dailySendHour: settings.dailySendHour,
+      dailySendDays: settings.dailySendDays,
+      weeklyEnabled: settings.weeklyEnabled,
+      weeklySendHour: settings.weeklySendHour,
       weeklySendDay: settings.weeklySendDay,
     },
   })

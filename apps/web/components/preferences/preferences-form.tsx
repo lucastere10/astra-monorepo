@@ -1,16 +1,19 @@
 "use client"
 
-import { useActionState, useMemo, useState } from "react"
-import { CheckCircle2, Loader2 } from "lucide-react"
+import { useActionState, useEffect, useMemo, useState } from "react"
+import { CheckCircle2, Loader2, Moon, Sun, Sunrise } from "lucide-react"
 
 import {
-  COMMON_TIMEZONES,
-  DEFAULT_CADENCE,
+  DEFAULT_DAILY_ENABLED,
+  DEFAULT_DAILY_SEND_DAYS,
   DEFAULT_SEND_HOUR,
   DEFAULT_TIMEZONE,
+  DEFAULT_WEEKLY_ENABLED,
   DEFAULT_WEEKLY_SEND_DAY,
+  nearestSendHourPreset,
+  SEND_HOUR_PRESETS,
   WEEKDAY_LABELS,
-  type NewsletterCadence,
+  type SendHourPreset,
 } from "@workspace/shared/cadence"
 import {
   DEFAULT_TOPIC_WEIGHT,
@@ -21,6 +24,7 @@ import { Button } from "@workspace/ui/components/button"
 import { Label } from "@workspace/ui/components/label"
 import { Slider } from "@workspace/ui/components/slider"
 import { Switch } from "@workspace/ui/components/switch"
+import { cn } from "@workspace/ui/lib/utils"
 
 import {
   savePreferences,
@@ -41,6 +45,120 @@ interface PreferencesFormProps {
   delivery: DeliverySettings
 }
 
+const HOUR_PRESET_UI = [
+  { hour: SEND_HOUR_PRESETS[0], label: "Morning", icon: Sunrise },
+  { hour: SEND_HOUR_PRESETS[1], label: "Midday", icon: Sun },
+  { hour: SEND_HOUR_PRESETS[2], label: "Evening", icon: Moon },
+] as const
+
+const WEEKDAY_SHORT = ["S", "M", "T", "W", "T", "F", "S"] as const
+
+function formatHour(hour: number): string {
+  return `${String(hour).padStart(2, "0")}:00`
+}
+
+function HourPicker({
+  id,
+  value,
+  onChange,
+  disabled,
+}: {
+  id: string
+  value: SendHourPreset
+  onChange: (hour: SendHourPreset) => void
+  disabled?: boolean
+}) {
+  return (
+    <div id={id} className="grid grid-cols-3 gap-1.5">
+      {HOUR_PRESET_UI.map(({ hour, label, icon: Icon }) => {
+        const selected = value === hour
+        const time = formatHour(hour)
+        return (
+          <button
+            key={label}
+            type="button"
+            disabled={disabled}
+            onClick={() => onChange(hour)}
+            aria-pressed={selected}
+            aria-label={`${label} at ${time}`}
+            className={cn(
+              "inline-flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-md border px-1.5 py-2 text-xs font-medium transition-colors",
+              selected
+                ? "border-foreground bg-foreground text-background"
+                : "border-input bg-background text-muted-foreground hover:bg-muted",
+              disabled && "pointer-events-none opacity-50"
+            )}
+          >
+            <span className="inline-flex items-center gap-1">
+              <Icon className="size-3.5 shrink-0" aria-hidden />
+              <span className="truncate">{label}</span>
+            </span>
+            <span
+              className={cn(
+                "font-mono text-[0.65rem] tabular-nums",
+                selected ? "text-background/80" : "text-muted-foreground"
+              )}
+            >
+              {time}
+            </span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function WeekdayStrip({
+  mode,
+  selected,
+  onToggle,
+  disabled,
+}: {
+  mode: "single" | "multi"
+  selected: number | number[]
+  onToggle: (day: number) => void
+  disabled?: boolean
+}) {
+  const isSelected = (day: number) =>
+    mode === "single"
+      ? selected === day
+      : (selected as number[]).includes(day)
+
+  return (
+    <div
+      className="flex flex-wrap gap-1.5"
+      role={mode === "single" ? "radiogroup" : "group"}
+      aria-label={mode === "single" ? "Day of week" : "Days of week"}
+    >
+      {WEEKDAY_LABELS.map((label, day) => {
+        const active = isSelected(day)
+        return (
+          <button
+            key={`${label}-${day}`}
+            type="button"
+            disabled={disabled}
+            title={label}
+            aria-label={label}
+            aria-pressed={mode === "multi" ? active : undefined}
+            aria-checked={mode === "single" ? active : undefined}
+            role={mode === "single" ? "radio" : undefined}
+            onClick={() => onToggle(day)}
+            className={cn(
+              "inline-flex size-9 items-center justify-center rounded-md border text-xs font-semibold transition-colors",
+              active
+                ? "border-foreground bg-foreground text-background"
+                : "border-input bg-background text-muted-foreground hover:bg-muted",
+              disabled && "pointer-events-none opacity-50"
+            )}
+          >
+            {WEEKDAY_SHORT[day]}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 export function PreferencesForm({ initial, delivery }: PreferencesFormProps) {
   const [rows, setRows] = useState<Record<string, RowState>>(() =>
     Object.fromEntries(
@@ -51,15 +169,25 @@ export function PreferencesForm({ initial, delivery }: PreferencesFormProps) {
     )
   )
 
-  const [cadence, setCadence] = useState<NewsletterCadence>(
-    delivery.cadence ?? DEFAULT_CADENCE
-  )
-  const [sendHour, setSendHour] = useState(delivery.sendHour ?? DEFAULT_SEND_HOUR)
-  const [timezone, setTimezone] = useState(
-    delivery.timezone ?? DEFAULT_TIMEZONE
-  )
   const [autoSendEnabled, setAutoSendEnabled] = useState(
     delivery.autoSendEnabled ?? true
+  )
+  const [dailyEnabled, setDailyEnabled] = useState(
+    delivery.dailyEnabled ?? DEFAULT_DAILY_ENABLED
+  )
+  const [dailySendHour, setDailySendHour] = useState(
+    nearestSendHourPreset(delivery.dailySendHour ?? DEFAULT_SEND_HOUR)
+  )
+  const [dailySendDays, setDailySendDays] = useState<number[]>(
+    delivery.dailySendDays?.length
+      ? delivery.dailySendDays
+      : [...DEFAULT_DAILY_SEND_DAYS]
+  )
+  const [weeklyEnabled, setWeeklyEnabled] = useState(
+    delivery.weeklyEnabled ?? DEFAULT_WEEKLY_ENABLED
+  )
+  const [weeklySendHour, setWeeklySendHour] = useState(
+    nearestSendHourPreset(delivery.weeklySendHour ?? DEFAULT_SEND_HOUR)
   )
   const [weeklySendDay, setWeeklySendDay] = useState(
     delivery.weeklySendDay ?? DEFAULT_WEEKLY_SEND_DAY
@@ -69,6 +197,47 @@ export function PreferencesForm({ initial, delivery }: PreferencesFormProps) {
     PreferencesFormState | undefined,
     FormData
   >(savePreferences, undefined)
+
+  // After a successful save, re-apply the persisted payload so a stale RSC
+  // refresh cannot wipe the values the user just submitted.
+  useEffect(() => {
+    if (!state?.success || !state.delivery) return
+
+    const saved = state.delivery
+    setAutoSendEnabled(saved.autoSendEnabled)
+    setDailyEnabled(saved.dailyEnabled)
+    setDailySendHour(nearestSendHourPreset(saved.dailySendHour))
+    setDailySendDays(
+      saved.dailySendDays.length
+        ? saved.dailySendDays
+        : [...DEFAULT_DAILY_SEND_DAYS]
+    )
+    setWeeklyEnabled(saved.weeklyEnabled)
+    setWeeklySendHour(nearestSendHourPreset(saved.weeklySendHour))
+    setWeeklySendDay(saved.weeklySendDay)
+
+    if (state.preferences) {
+      const byTopic = new Map(
+        state.preferences.map((p) => [p.topicId, p.weight])
+      )
+      setRows((prev) =>
+        Object.fromEntries(
+          initial.map((topic) => [
+            topic.topicId,
+            {
+              enabled: byTopic.has(topic.topicId),
+              weight:
+                byTopic.get(topic.topicId) ??
+                prev[topic.topicId]?.weight ??
+                DEFAULT_TOPIC_WEIGHT,
+            },
+          ])
+        )
+      )
+    }
+    // Apply once per action result; `initial` is from that same render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional
+  }, [state])
 
   const serializedPrefs = useMemo(
     () =>
@@ -86,16 +255,28 @@ export function PreferencesForm({ initial, delivery }: PreferencesFormProps) {
   const serializedDelivery = useMemo(
     () =>
       JSON.stringify({
-        cadence,
-        sendHour,
-        timezone,
+        timezone: DEFAULT_TIMEZONE,
         autoSendEnabled,
+        dailyEnabled,
+        dailySendHour,
+        dailySendDays,
+        weeklyEnabled,
+        weeklySendHour,
         weeklySendDay,
       }),
-    [cadence, sendHour, timezone, autoSendEnabled, weeklySendDay]
+    [
+      autoSendEnabled,
+      dailyEnabled,
+      dailySendHour,
+      dailySendDays,
+      weeklyEnabled,
+      weeklySendHour,
+      weeklySendDay,
+    ]
   )
 
   const enabledCount = Object.values(rows).filter((r) => r.enabled).length
+  const scheduleLocked = !autoSendEnabled
 
   function setRow(topicId: string, patch: Partial<RowState>) {
     setRows((prev) => ({
@@ -104,91 +285,192 @@ export function PreferencesForm({ initial, delivery }: PreferencesFormProps) {
     }))
   }
 
+  function toggleDailyDay(day: number) {
+    setDailySendDays((prev) =>
+      prev.includes(day)
+        ? prev.filter((d) => d !== day)
+        : [...prev, day].sort((a, b) => a - b)
+    )
+  }
+
+  function toggleDigest(
+    kind: "daily" | "weekly",
+    next: boolean
+  ) {
+    if (kind === "daily") setDailyEnabled(next)
+    else setWeeklyEnabled(next)
+  }
+
   return (
-    <form action={action} className="flex flex-col gap-8">
+    <form action={action} className="flex flex-col gap-10">
       <input type="hidden" name="preferences" value={serializedPrefs} />
       <input type="hidden" name="delivery" value={serializedDelivery} />
 
-      <section className="bg-card flex flex-col gap-4 rounded-lg border p-5">
+      <section className="flex flex-col gap-5">
         <div>
-          <h2 className="text-sm font-semibold">Delivery</h2>
-          <p className="text-muted-foreground mt-0.5 text-xs">
-            Choose how often we send, and at what local time.
+          <h2 className="text-base font-semibold tracking-tight">
+            Your digests
+          </h2>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Pick Daily, Weekly, or both. Each has its own schedule.
           </p>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="cadence">Cadence</Label>
-            <select
-              id="cadence"
-              className="border-input bg-background h-9 rounded-md border px-3 text-sm"
-              value={cadence}
-              onChange={(e) =>
-                setCadence(e.target.value as NewsletterCadence)
-              }
-            >
-              <option value="WEEKLY">Weekly (8 stories)</option>
-              <option value="DAILY">Daily digest (4 stories)</option>
-            </select>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="sendHour">Send hour (local)</Label>
-            <select
-              id="sendHour"
-              className="border-input bg-background h-9 rounded-md border px-3 text-sm"
-              value={sendHour}
-              onChange={(e) => setSendHour(Number(e.target.value))}
-            >
-              {Array.from({ length: 24 }, (_, hour) => (
-                <option key={hour} value={hour}>
-                  {String(hour).padStart(2, "0")}:00
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="timezone">Timezone</Label>
-            <select
-              id="timezone"
-              className="border-input bg-background h-9 rounded-md border px-3 text-sm"
-              value={timezone}
-              onChange={(e) => setTimezone(e.target.value)}
-            >
-              {COMMON_TIMEZONES.map((tz) => (
-                <option key={tz} value={tz}>
-                  {tz}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {cadence === "WEEKLY" && (
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="weeklySendDay">Day of week</Label>
-              <select
-                id="weeklySendDay"
-                className="border-input bg-background h-9 rounded-md border px-3 text-sm"
-                value={weeklySendDay}
-                onChange={(e) => setWeeklySendDay(Number(e.target.value))}
-              >
-                {WEEKDAY_LABELS.map((label, day) => (
-                  <option key={label} value={day}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </div>
+        <div
+          className={cn(
+            "grid gap-4 sm:grid-cols-2",
+            scheduleLocked && "opacity-60"
           )}
+        >
+          {/* Daily card */}
+          <div
+            className={cn(
+              "bg-card flex flex-col rounded-xl border transition-colors",
+              dailyEnabled && autoSendEnabled
+                ? "border-foreground/40 ring-1 ring-foreground/10"
+                : "border-border"
+            )}
+          >
+            <button
+              type="button"
+              disabled={scheduleLocked}
+              onClick={() => toggleDigest("daily", !dailyEnabled)}
+              aria-pressed={dailyEnabled}
+              className="flex flex-col gap-3 p-5 text-left disabled:pointer-events-none"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                    Short brief
+                  </p>
+                  <p className="mt-1 text-lg font-semibold tracking-tight">
+                    Astra Daily
+                  </p>
+                </div>
+                <span
+                  className={cn(
+                    "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border text-[10px]",
+                    dailyEnabled
+                      ? "border-foreground bg-foreground text-background"
+                      : "border-muted-foreground/40"
+                  )}
+                  aria-hidden
+                >
+                  {dailyEnabled ? "✓" : ""}
+                </span>
+              </div>
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                ~4 stories on the days you choose — a quick pulse of what
+                matters.
+              </p>
+              <p className="text-muted-foreground text-xs">
+                Best if you want a light daily habit.
+              </p>
+            </button>
+
+            {dailyEnabled && (
+              <div className="border-t px-5 pt-4 pb-5">
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-2">
+                    <Label className="text-xs">Which days?</Label>
+                    <WeekdayStrip
+                      mode="multi"
+                      selected={dailySendDays}
+                      onToggle={toggleDailyDay}
+                      disabled={scheduleLocked}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label className="text-xs">What time?</Label>
+                    <HourPicker
+                      id="dailySendHour"
+                      value={dailySendHour}
+                      onChange={setDailySendHour}
+                      disabled={scheduleLocked}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Weekly card */}
+          <div
+            className={cn(
+              "bg-card flex flex-col rounded-xl border transition-colors",
+              weeklyEnabled && autoSendEnabled
+                ? "border-foreground/40 ring-1 ring-foreground/10"
+                : "border-border"
+            )}
+          >
+            <button
+              type="button"
+              disabled={scheduleLocked}
+              onClick={() => toggleDigest("weekly", !weeklyEnabled)}
+              aria-pressed={weeklyEnabled}
+              className="flex flex-col gap-3 p-5 text-left disabled:pointer-events-none"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                    Deep roundup
+                  </p>
+                  <p className="mt-1 text-lg font-semibold tracking-tight">
+                    Astra Weekly
+                  </p>
+                </div>
+                <span
+                  className={cn(
+                    "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border text-[10px]",
+                    weeklyEnabled
+                      ? "border-foreground bg-foreground text-background"
+                      : "border-muted-foreground/40"
+                  )}
+                  aria-hidden
+                >
+                  {weeklyEnabled ? "✓" : ""}
+                </span>
+              </div>
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                ~8 stories once a week — a fuller briefing you can sit with.
+              </p>
+              <p className="text-muted-foreground text-xs">
+                Best for a weekend or Monday catch-up.
+              </p>
+            </button>
+
+            {weeklyEnabled && (
+              <div className="border-t px-5 pt-4 pb-5">
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-2">
+                    <Label className="text-xs">Which day?</Label>
+                    <WeekdayStrip
+                      mode="single"
+                      selected={weeklySendDay}
+                      onToggle={setWeeklySendDay}
+                      disabled={scheduleLocked}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label className="text-xs">What time?</Label>
+                    <HourPicker
+                      id="weeklySendHour"
+                      value={weeklySendHour}
+                      onChange={setWeeklySendHour}
+                      disabled={scheduleLocked}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+        <div className="bg-muted/30 flex items-center justify-between gap-3 rounded-lg border border-dashed px-4 py-3">
           <div>
-            <p className="text-sm font-medium">Automatic email</p>
+            <p className="text-sm font-medium">Send automatically</p>
             <p className="text-muted-foreground text-xs">
-              Send editions on schedule without opening the app.
+              Turn off to pause every digest. Times use America/Sao Paulo.
             </p>
           </div>
           <Switch
@@ -201,8 +483,8 @@ export function PreferencesForm({ initial, delivery }: PreferencesFormProps) {
 
       <section className="flex flex-col gap-4">
         <div>
-          <h2 className="text-sm font-semibold">Topics</h2>
-          <p className="text-muted-foreground mt-0.5 text-xs">
+          <h2 className="text-base font-semibold tracking-tight">Topics</h2>
+          <p className="text-muted-foreground mt-1 text-sm">
             Higher weights push matching articles higher in your newsletter.
           </p>
         </div>

@@ -11,7 +11,11 @@ import {
   TableRow,
 } from "@workspace/ui/components/table"
 
-import { listWorkerExecutions } from "@/modules/admin/admin.service"
+import { ListPagination } from "@/components/list-pagination"
+import {
+  listWorkerExecutions,
+  parsePage,
+} from "@/modules/admin/admin.service"
 
 export const metadata: Metadata = {
   title: "Worker executions",
@@ -24,8 +28,36 @@ function duration(start: Date, end: Date | null): string {
   return `${Math.round(seconds / 60)}m`
 }
 
-export default async function AdminWorkersPage() {
-  const executions = await listWorkerExecutions()
+function statusVariant(
+  status: string
+): "default" | "destructive" | "outline" {
+  if (status === "SUCCESS") return "default"
+  if (status === "FAILED") return "destructive"
+  return "outline"
+}
+
+export default async function AdminWorkersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>
+}) {
+  const { page: pageParam } = await searchParams
+  const page = parsePage(pageParam)
+  const {
+    items: executions,
+    total,
+    totalPages,
+    page: currentPage,
+  } = await listWorkerExecutions(page)
+
+  const pagination = (
+    <ListPagination
+      basePath="/admin/workers"
+      page={currentPage}
+      totalPages={totalPages}
+      total={total}
+    />
+  )
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -37,6 +69,8 @@ export default async function AdminWorkersPage() {
           Observe the collection and enrichment pipeline.
         </p>
       </header>
+
+      {executions.length > 0 && <div className="mb-4">{pagination}</div>}
 
       <div className="bg-card rounded-xl border">
         <Table>
@@ -67,13 +101,7 @@ export default async function AdminWorkersPage() {
                   </TableCell>
                   <TableCell>
                     <Badge
-                      variant={
-                        execution.status === "SUCCESS"
-                          ? "default"
-                          : execution.status === "FAILED"
-                            ? "destructive"
-                            : "outline"
-                      }
+                      variant={statusVariant(execution.status)}
                       className="py-0"
                     >
                       {execution.status.toLowerCase()}
@@ -92,6 +120,8 @@ export default async function AdminWorkersPage() {
           </TableBody>
         </Table>
       </div>
+
+      {executions.length > 0 && <div className="mt-4">{pagination}</div>}
     </div>
   )
 }
