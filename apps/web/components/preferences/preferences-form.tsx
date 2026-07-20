@@ -1,24 +1,17 @@
 "use client"
 
-import { useActionState, useMemo, useState } from "react"
-import {
-  CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
-  Loader2,
-  Moon,
-  Sun,
-  Sunrise,
-} from "lucide-react"
+import { useActionState, useEffect, useMemo, useState } from "react"
+import { CheckCircle2, Loader2, Moon, Sun, Sunrise } from "lucide-react"
 
 import {
-  COMMON_TIMEZONES,
   DEFAULT_DAILY_ENABLED,
   DEFAULT_DAILY_SEND_DAYS,
   DEFAULT_SEND_HOUR,
   DEFAULT_TIMEZONE,
   DEFAULT_WEEKLY_ENABLED,
   DEFAULT_WEEKLY_SEND_DAY,
+  nearestSendHourPreset,
+  SEND_HOUR_PRESETS,
   WEEKDAY_LABELS,
 } from "@workspace/shared/cadence"
 import {
@@ -51,10 +44,10 @@ interface PreferencesFormProps {
   delivery: DeliverySettings
 }
 
-const HOUR_PRESETS = [
-  { hour: 8, label: "Morning", icon: Sunrise },
-  { hour: 12, label: "Midday", icon: Sun },
-  { hour: 18, label: "Evening", icon: Moon },
+const HOUR_PRESET_UI = [
+  { hour: SEND_HOUR_PRESETS[0], label: "Morning", icon: Sunrise },
+  { hour: SEND_HOUR_PRESETS[1], label: "Midday", icon: Sun },
+  { hour: SEND_HOUR_PRESETS[2], label: "Evening", icon: Moon },
 ] as const
 
 const WEEKDAY_SHORT = ["S", "M", "T", "W", "T", "F", "S"] as const
@@ -74,73 +67,42 @@ function HourPicker({
   onChange: (hour: number) => void
   disabled?: boolean
 }) {
-  const matchedPreset = HOUR_PRESETS.find((p) => p.hour === value)
-
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap gap-2">
-        {HOUR_PRESETS.map(({ hour, label, icon: Icon }) => {
-          const selected = value === hour
-          return (
-            <button
-              key={label}
-              type="button"
-              disabled={disabled}
-              onClick={() => onChange(hour)}
-              aria-pressed={selected}
+    <div id={id} className="grid grid-cols-3 gap-1.5">
+      {HOUR_PRESET_UI.map(({ hour, label, icon: Icon }) => {
+        const selected = value === hour
+        const time = formatHour(hour)
+        return (
+          <button
+            key={label}
+            type="button"
+            disabled={disabled}
+            onClick={() => onChange(hour)}
+            aria-pressed={selected}
+            aria-label={`${label} at ${time}`}
+            className={cn(
+              "inline-flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-md border px-1.5 py-2 text-xs font-medium transition-colors",
+              selected
+                ? "border-foreground bg-foreground text-background"
+                : "border-input bg-background text-muted-foreground hover:bg-muted",
+              disabled && "pointer-events-none opacity-50"
+            )}
+          >
+            <span className="inline-flex items-center gap-1">
+              <Icon className="size-3.5 shrink-0" aria-hidden />
+              <span className="truncate">{label}</span>
+            </span>
+            <span
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-md border px-3 py-2 text-xs font-medium transition-colors",
-                selected
-                  ? "border-foreground bg-foreground text-background"
-                  : "border-input bg-background text-muted-foreground hover:bg-muted",
-                disabled && "pointer-events-none opacity-50"
+                "font-mono text-[0.65rem] tabular-nums",
+                selected ? "text-background/80" : "text-muted-foreground"
               )}
             >
-              <Icon className="size-3.5" aria-hidden />
-              {label}
-            </button>
-          )
-        })}
-      </div>
-
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          disabled={disabled}
-          aria-label="Earlier hour"
-          onClick={() => onChange((value + 23) % 24)}
-          className={cn(
-            "border-input hover:bg-muted inline-flex size-9 items-center justify-center rounded-md border",
-            disabled && "pointer-events-none opacity-50"
-          )}
-        >
-          <ChevronLeft className="size-4" />
-        </button>
-        <div
-          id={id}
-          className="border-input bg-muted/40 flex h-9 min-w-[5.5rem] flex-1 items-center justify-center rounded-md border font-mono text-sm tabular-nums"
-          aria-live="polite"
-        >
-          {formatHour(value)}
-          {matchedPreset ? (
-            <span className="text-muted-foreground ml-2 text-xs font-sans">
-              {matchedPreset.label}
+              {time}
             </span>
-          ) : null}
-        </div>
-        <button
-          type="button"
-          disabled={disabled}
-          aria-label="Later hour"
-          onClick={() => onChange((value + 1) % 24)}
-          className={cn(
-            "border-input hover:bg-muted inline-flex size-9 items-center justify-center rounded-md border",
-            disabled && "pointer-events-none opacity-50"
-          )}
-        >
-          <ChevronRight className="size-4" />
-        </button>
-      </div>
+          </button>
+        )
+      })}
     </div>
   )
 }
@@ -206,9 +168,6 @@ export function PreferencesForm({ initial, delivery }: PreferencesFormProps) {
     )
   )
 
-  const [timezone, setTimezone] = useState(
-    delivery.timezone ?? DEFAULT_TIMEZONE
-  )
   const [autoSendEnabled, setAutoSendEnabled] = useState(
     delivery.autoSendEnabled ?? true
   )
@@ -216,7 +175,7 @@ export function PreferencesForm({ initial, delivery }: PreferencesFormProps) {
     delivery.dailyEnabled ?? DEFAULT_DAILY_ENABLED
   )
   const [dailySendHour, setDailySendHour] = useState(
-    delivery.dailySendHour ?? DEFAULT_SEND_HOUR
+    nearestSendHourPreset(delivery.dailySendHour ?? DEFAULT_SEND_HOUR)
   )
   const [dailySendDays, setDailySendDays] = useState<number[]>(
     delivery.dailySendDays?.length
@@ -227,7 +186,7 @@ export function PreferencesForm({ initial, delivery }: PreferencesFormProps) {
     delivery.weeklyEnabled ?? DEFAULT_WEEKLY_ENABLED
   )
   const [weeklySendHour, setWeeklySendHour] = useState(
-    delivery.weeklySendHour ?? DEFAULT_SEND_HOUR
+    nearestSendHourPreset(delivery.weeklySendHour ?? DEFAULT_SEND_HOUR)
   )
   const [weeklySendDay, setWeeklySendDay] = useState(
     delivery.weeklySendDay ?? DEFAULT_WEEKLY_SEND_DAY
@@ -237,6 +196,47 @@ export function PreferencesForm({ initial, delivery }: PreferencesFormProps) {
     PreferencesFormState | undefined,
     FormData
   >(savePreferences, undefined)
+
+  // After a successful save, re-apply the persisted payload so a stale RSC
+  // refresh cannot wipe the values the user just submitted.
+  useEffect(() => {
+    if (!state?.success || !state.delivery) return
+
+    const saved = state.delivery
+    setAutoSendEnabled(saved.autoSendEnabled)
+    setDailyEnabled(saved.dailyEnabled)
+    setDailySendHour(nearestSendHourPreset(saved.dailySendHour))
+    setDailySendDays(
+      saved.dailySendDays.length
+        ? saved.dailySendDays
+        : [...DEFAULT_DAILY_SEND_DAYS]
+    )
+    setWeeklyEnabled(saved.weeklyEnabled)
+    setWeeklySendHour(nearestSendHourPreset(saved.weeklySendHour))
+    setWeeklySendDay(saved.weeklySendDay)
+
+    if (state.preferences) {
+      const byTopic = new Map(
+        state.preferences.map((p) => [p.topicId, p.weight])
+      )
+      setRows((prev) =>
+        Object.fromEntries(
+          initial.map((topic) => [
+            topic.topicId,
+            {
+              enabled: byTopic.has(topic.topicId),
+              weight:
+                byTopic.get(topic.topicId) ??
+                prev[topic.topicId]?.weight ??
+                DEFAULT_TOPIC_WEIGHT,
+            },
+          ])
+        )
+      )
+    }
+    // Apply once per action result; `initial` is from that same render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional
+  }, [state])
 
   const serializedPrefs = useMemo(
     () =>
@@ -254,7 +254,7 @@ export function PreferencesForm({ initial, delivery }: PreferencesFormProps) {
   const serializedDelivery = useMemo(
     () =>
       JSON.stringify({
-        timezone,
+        timezone: DEFAULT_TIMEZONE,
         autoSendEnabled,
         dailyEnabled,
         dailySendHour,
@@ -264,7 +264,6 @@ export function PreferencesForm({ initial, delivery }: PreferencesFormProps) {
         weeklySendDay,
       }),
     [
-      timezone,
       autoSendEnabled,
       dailyEnabled,
       dailySendHour,
@@ -466,37 +465,18 @@ export function PreferencesForm({ initial, delivery }: PreferencesFormProps) {
           </div>
         </div>
 
-        <div className="bg-muted/30 flex flex-col gap-3 rounded-lg border border-dashed px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center justify-between gap-3 sm:justify-start">
-            <div>
-              <p className="text-sm font-medium">Send automatically</p>
-              <p className="text-muted-foreground text-xs">
-                Turn off to pause every digest.
-              </p>
-            </div>
-            <Switch
-              checked={autoSendEnabled}
-              onCheckedChange={setAutoSendEnabled}
-              aria-label="Enable automatic email"
-            />
+        <div className="bg-muted/30 flex items-center justify-between gap-3 rounded-lg border border-dashed px-4 py-3">
+          <div>
+            <p className="text-sm font-medium">Send automatically</p>
+            <p className="text-muted-foreground text-xs">
+              Turn off to pause every digest. Times use America/Sao Paulo.
+            </p>
           </div>
-          <div className="flex flex-col gap-1 sm:min-w-[14rem]">
-            <Label htmlFor="timezone" className="text-xs">
-              Timezone
-            </Label>
-            <select
-              id="timezone"
-              className="border-input bg-background h-8 rounded-md border px-2 text-xs"
-              value={timezone}
-              onChange={(e) => setTimezone(e.target.value)}
-            >
-              {COMMON_TIMEZONES.map((tz) => (
-                <option key={tz} value={tz}>
-                  {tz.replace(/_/g, " ")}
-                </option>
-              ))}
-            </select>
-          </div>
+          <Switch
+            checked={autoSendEnabled}
+            onCheckedChange={setAutoSendEnabled}
+            aria-label="Enable automatic email"
+          />
         </div>
       </section>
 

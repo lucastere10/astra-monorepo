@@ -11,7 +11,11 @@ import {
   TableRow,
 } from "@workspace/ui/components/table"
 
-import { listAdminNewsletters } from "@/modules/admin/admin.service"
+import { ListPagination } from "@/components/list-pagination"
+import {
+  listAdminNewsletters,
+  parsePage,
+} from "@/modules/admin/admin.service"
 
 export const metadata: Metadata = {
   title: "Newsletter editions",
@@ -28,8 +32,28 @@ const STATUS_VARIANT: Record<
   FAILED: "destructive",
 }
 
-export default async function AdminNewslettersPage() {
-  const newsletters = await listAdminNewsletters()
+export default async function AdminNewslettersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>
+}) {
+  const { page: pageParam } = await searchParams
+  const page = parsePage(pageParam)
+  const {
+    items: newsletters,
+    total,
+    totalPages,
+    page: currentPage,
+  } = await listAdminNewsletters(page)
+
+  const pagination = (
+    <ListPagination
+      basePath="/admin/newsletters"
+      page={currentPage}
+      totalPages={totalPages}
+      total={total}
+    />
+  )
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -42,11 +66,13 @@ export default async function AdminNewslettersPage() {
         </p>
       </header>
 
+      {newsletters.length > 0 && <div className="mb-4">{pagination}</div>}
+
       <div className="bg-card rounded-xl border">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Subject</TableHead>
+              <TableHead className="w-[40%]">Subject</TableHead>
               <TableHead>Recipient</TableHead>
               <TableHead>Articles</TableHead>
               <TableHead>Status</TableHead>
@@ -66,8 +92,10 @@ export default async function AdminNewslettersPage() {
             ) : (
               newsletters.map((newsletter) => (
                 <TableRow key={newsletter.id}>
-                  <TableCell className="max-w-sm truncate font-medium">
-                    {newsletter.subject}
+                  <TableCell className="max-w-0">
+                    <span className="block truncate font-medium">
+                      {newsletter.subject}
+                    </span>
                   </TableCell>
                   <TableCell className="text-muted-foreground text-xs">
                     {newsletter.user.email}
@@ -90,6 +118,8 @@ export default async function AdminNewslettersPage() {
           </TableBody>
         </Table>
       </div>
+
+      {newsletters.length > 0 && <div className="mt-4">{pagination}</div>}
     </div>
   )
 }

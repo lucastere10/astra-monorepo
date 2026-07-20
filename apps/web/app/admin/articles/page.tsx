@@ -13,7 +13,11 @@ import {
   TableRow,
 } from "@workspace/ui/components/table"
 
-import { searchArticles } from "@/modules/admin/admin.service"
+import { ListPagination } from "@/components/list-pagination"
+import {
+  parsePage,
+  searchArticles,
+} from "@/modules/admin/admin.service"
 
 export const metadata: Metadata = {
   title: "Articles",
@@ -22,10 +26,22 @@ export const metadata: Metadata = {
 export default async function AdminArticlesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>
+  searchParams: Promise<{ q?: string; page?: string }>
 }) {
-  const { q } = await searchParams
-  const articles = await searchArticles(q)
+  const { q, page: pageParam } = await searchParams
+  const page = parsePage(pageParam)
+  const { items: articles, total, totalPages, page: currentPage } =
+    await searchArticles(q, page)
+
+  const pagination = (
+    <ListPagination
+      basePath="/admin/articles"
+      page={currentPage}
+      totalPages={totalPages}
+      total={total}
+      searchParams={{ q }}
+    />
+  )
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -51,11 +67,13 @@ export default async function AdminArticlesPage({
         <Button type="submit">Search</Button>
       </form>
 
+      {articles.length > 0 && <div className="mb-4">{pagination}</div>}
+
       <div className="bg-card rounded-xl border">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Title</TableHead>
+              <TableHead className="w-[40%]">Title</TableHead>
               <TableHead>Source</TableHead>
               <TableHead>Score</TableHead>
               <TableHead>Topics</TableHead>
@@ -75,12 +93,12 @@ export default async function AdminArticlesPage({
             ) : (
               articles.map((article) => (
                 <TableRow key={article.id}>
-                  <TableCell className="max-w-sm">
+                  <TableCell className="max-w-0">
                     <a
                       href={article.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="hover:text-primary truncate font-medium"
+                      className="hover:text-primary block truncate font-medium"
                     >
                       {article.title}
                     </a>
@@ -101,6 +119,8 @@ export default async function AdminArticlesPage({
           </TableBody>
         </Table>
       </div>
+
+      {articles.length > 0 && <div className="mt-4">{pagination}</div>}
     </div>
   )
 }

@@ -8,6 +8,7 @@ import {
   DEFAULT_TIMEZONE,
   DEFAULT_WEEKLY_ENABLED,
   DEFAULT_WEEKLY_SEND_DAY,
+  nearestSendHourPreset,
 } from "@workspace/shared/cadence"
 
 export interface TopicPreference {
@@ -71,15 +72,19 @@ export async function getDeliverySettings(
   })
 
   return {
-    timezone: user?.timezone ?? DEFAULT_TIMEZONE,
+    timezone: DEFAULT_TIMEZONE,
     autoSendEnabled: user?.autoSendEnabled ?? true,
     dailyEnabled: user?.dailyEnabled ?? DEFAULT_DAILY_ENABLED,
-    dailySendHour: user?.dailySendHour ?? DEFAULT_SEND_HOUR,
+    dailySendHour: nearestSendHourPreset(
+      user?.dailySendHour ?? DEFAULT_SEND_HOUR
+    ),
     dailySendDays: user?.dailySendDays?.length
       ? user.dailySendDays
       : [...DEFAULT_DAILY_SEND_DAYS],
     weeklyEnabled: user?.weeklyEnabled ?? DEFAULT_WEEKLY_ENABLED,
-    weeklySendHour: user?.weeklySendHour ?? DEFAULT_SEND_HOUR,
+    weeklySendHour: nearestSendHourPreset(
+      user?.weeklySendHour ?? DEFAULT_SEND_HOUR
+    ),
     weeklySendDay: user?.weeklySendDay ?? DEFAULT_WEEKLY_SEND_DAY,
   }
 }

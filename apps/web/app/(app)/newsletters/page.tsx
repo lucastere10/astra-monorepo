@@ -5,7 +5,9 @@ import { ChevronRight, Mail } from "lucide-react"
 import { formatRelativeTime } from "@workspace/shared/utils"
 import { Badge } from "@workspace/ui/components/badge"
 
+import { ListPagination } from "@/components/list-pagination"
 import { GenerateNewsletterButton } from "@/components/newsletter/generate-button"
+import { parsePage } from "@/lib/pagination"
 import { requireUser } from "@/modules/auth/dal"
 import { getUserNewsletters } from "@/modules/newsletter/newsletter.queries"
 
@@ -24,9 +26,29 @@ const STATUS_VARIANT: Record<
   FAILED: "destructive",
 }
 
-export default async function NewslettersPage() {
+export default async function NewslettersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>
+}) {
   const user = await requireUser()
-  const newsletters = await getUserNewsletters(user.id)
+  const { page: pageParam } = await searchParams
+  const page = parsePage(pageParam)
+  const {
+    items: newsletters,
+    total,
+    totalPages,
+    page: currentPage,
+  } = await getUserNewsletters(user.id, page)
+
+  const pagination = (
+    <ListPagination
+      basePath="/newsletters"
+      page={currentPage}
+      totalPages={totalPages}
+      total={total}
+    />
+  )
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -52,36 +74,42 @@ export default async function NewslettersPage() {
           </p>
         </div>
       ) : (
-        <ul className="flex flex-col gap-2">
-          {newsletters.map((newsletter) => (
-            <li key={newsletter.id}>
-              <Link
-                href={`/newsletters/${newsletter.id}`}
-                className="bg-card hover:border-primary/40 flex items-center justify-between gap-4 rounded-lg border p-4 transition-colors"
-              >
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="truncate text-sm font-medium">
-                      {newsletter.subject}
+        <>
+          <div className="mb-4">{pagination}</div>
+          <ul className="flex flex-col gap-2">
+            {newsletters.map((newsletter) => (
+              <li key={newsletter.id}>
+                <Link
+                  href={`/newsletters/${newsletter.id}`}
+                  className="bg-card hover:border-primary/40 flex items-center justify-between gap-4 rounded-lg border p-4 transition-colors"
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="truncate text-sm font-medium">
+                        {newsletter.subject}
+                      </p>
+                      <Badge
+                        variant={
+                          STATUS_VARIANT[newsletter.status] ?? "outline"
+                        }
+                        className="py-0"
+                      >
+                        {newsletter.status.toLowerCase()}
+                      </Badge>
+                    </div>
+                    <p className="text-muted-foreground mt-1 text-xs">
+                      {newsletter.cadence.toLowerCase()} ·{" "}
+                      {newsletter._count.articles} articles ·{" "}
+                      {formatRelativeTime(newsletter.createdAt)}
                     </p>
-                    <Badge
-                      variant={STATUS_VARIANT[newsletter.status] ?? "outline"}
-                      className="py-0"
-                    >
-                      {newsletter.status.toLowerCase()}
-                    </Badge>
                   </div>
-                  <p className="text-muted-foreground mt-1 text-xs">
-                    {newsletter.cadence.toLowerCase()} ·{" "}
-                    {newsletter._count.articles} articles ·{" "}
-                    {formatRelativeTime(newsletter.createdAt)}
-                  </p>
-                </div>
-                <ChevronRight className="text-muted-foreground size-4 shrink-0" />
-              </Link>
-            </li>
-          ))}
-        </ul>
+                  <ChevronRight className="text-muted-foreground size-4 shrink-0" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-4">{pagination}</div>
+        </>
       )}
     </div>
   )

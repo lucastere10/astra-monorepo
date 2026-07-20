@@ -1,4 +1,4 @@
-"""Hourly delivery job: find due users, rank, render, send."""
+"""Delivery job: find due users at morning/midday/evening, rank, render, send."""
 
 from __future__ import annotations
 
@@ -15,13 +15,47 @@ from .email import send_email
 from .html import ArticleView, TemplateData, render_newsletter_html
 from .ranking import rank_articles_for_user
 
+DEFAULT_TIMEZONE = "America/Sao_Paulo"
+SEND_HOUR_PRESETS = (8, 12, 18)
+SEND_LEAD_MINUTES = 3
+
 
 def _local_now(tz_name: str) -> datetime:
     try:
-        tz = ZoneInfo(tz_name)
+        tz = ZoneInfo(tz_name or DEFAULT_TIMEZONE)
     except Exception:  # noqa: BLE001
-        tz = ZoneInfo("UTC")
+        tz = ZoneInfo(DEFAULT_TIMEZONE)
     return datetime.now(tz)
+
+
+def _nearest_send_hour(hour: int) -> int:
+    """Snap legacy custom hours onto morning / midday / evening."""
+    best = SEND_HOUR_PRESETS[0]
+    best_dist = 24
+    for preset in SEND_HOUR_PRESETS:
+        dist = min(abs(hour - preset), 24 - abs(hour - preset))
+        if dist < best_dist:
+            best = preset
+            best_dist = dist
+    return best
+
+
+def _delivery_target(local: datetime) -> datetime:
+    """
+    Map "now" onto the send window being processed.
+
+    The scheduler starts SEND_LEAD_MINUTES before each preset (e.g. 07:57 for
+    08:00). In that lead window, treat the upcoming preset hour as the target.
+    """
+    upcoming_hour = (local.hour + 1) % 24
+    if (
+        local.minute >= 60 - SEND_LEAD_MINUTES
+        and upcoming_hour in SEND_HOUR_PRESETS
+    ):
+        return (local + timedelta(hours=1)).replace(
+            minute=0, second=0, microsecond=0
+        )
+    return local.replace(minute=0, second=0, microsecond=0)
 
 
 def _js_weekday_to_python(js_day: int) -> int:
@@ -41,22 +75,23 @@ class DeliverySlot:
 
 
 def due_slots_for_user(user: repository.DeliveryUser) -> list[DeliverySlot]:
-    """Return cadence slots that are due for this user in the current local hour."""
-    local = _local_now(user.timezone)
-    js_weekday = _python_weekday_to_js(local.weekday())
+    """Return cadence slots due for the current (or upcoming) send window."""
+    local = _local_now(DEFAULT_TIMEZONE)
+    target = _delivery_target(local)
+    js_weekday = _python_weekday_to_js(target.weekday())
     slots: list[DeliverySlot] = []
 
     if (
         user.daily_enabled
-        and local.hour == user.daily_send_hour
+        and target.hour == _nearest_send_hour(user.daily_send_hour)
         and js_weekday in user.daily_send_days
     ):
         slots.append(DeliverySlot(user=user, cadence="DAILY"))
 
     if (
         user.weekly_enabled
-        and local.hour == user.weekly_send_hour
-        and local.weekday() == _js_weekday_to_python(user.weekly_send_day)
+        and target.hour == _nearest_send_hour(user.weekly_send_hour)
+        and target.weekday() == _js_weekday_to_python(user.weekly_send_day)
     ):
         slots.append(DeliverySlot(user=user, cadence="WEEKLY"))
 
@@ -64,8 +99,9 @@ def due_slots_for_user(user: repository.DeliveryUser) -> list[DeliverySlot]:
 
 
 def period_start_utc(user: repository.DeliveryUser, cadence: str) -> datetime:
-    local = _local_now(user.timezone)
-    start_local = local.replace(hour=0, minute=0, second=0, microsecond=0)
+    local = _local_now(DEFAULT_TIMEZONE)
+    target = _delivery_target(local)
+    start_local = target.replace(hour=0, minute=0, second=0, microsecond=0)
     if cadence == "DAILY":
         return start_local.astimezone(timezone.utc)
 

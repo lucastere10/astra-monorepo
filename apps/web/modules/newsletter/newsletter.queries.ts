@@ -2,10 +2,24 @@ import "server-only"
 
 import { prisma } from "@workspace/database"
 
-export async function getUserNewsletters(userId: string) {
-  return prisma.newsletter.findMany({
-    where: { userId },
+import {
+  DEFAULT_PAGE_SIZE,
+  paginateMeta,
+  type PaginatedResult,
+} from "@/lib/pagination"
+
+export { parsePage } from "@/lib/pagination"
+
+export async function getUserNewsletters(userId: string, page = 1) {
+  const where = { userId }
+  const total = await prisma.newsletter.count({ where })
+  const meta = paginateMeta(total, page, DEFAULT_PAGE_SIZE)
+
+  const items = await prisma.newsletter.findMany({
+    where,
     orderBy: { createdAt: "desc" },
+    skip: meta.skip,
+    take: meta.pageSize,
     select: {
       id: true,
       subject: true,
@@ -16,6 +30,14 @@ export async function getUserNewsletters(userId: string) {
       _count: { select: { articles: true } },
     },
   })
+
+  return {
+    items,
+    total: meta.total,
+    page: meta.page,
+    pageSize: meta.pageSize,
+    totalPages: meta.totalPages,
+  } satisfies PaginatedResult<(typeof items)[number]>
 }
 
 export async function getNewsletterForUser(id: string, userId: string) {
