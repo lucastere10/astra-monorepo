@@ -13,6 +13,7 @@ import {
   nearestSendHourPreset,
   SEND_HOUR_PRESETS,
   WEEKDAY_LABELS,
+  type SendHourPreset,
 } from "@workspace/shared/cadence"
 import {
   DEFAULT_TOPIC_WEIGHT,
@@ -63,8 +64,8 @@ function HourPicker({
   disabled,
 }: {
   id: string
-  value: number
-  onChange: (hour: number) => void
+  value: SendHourPreset
+  onChange: (hour: SendHourPreset) => void
   disabled?: boolean
 }) {
   return (
