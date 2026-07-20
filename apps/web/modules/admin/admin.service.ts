@@ -2,6 +2,16 @@ import "server-only"
 
 import { prisma } from "@workspace/database"
 
+import {
+  DEFAULT_PAGE_SIZE,
+  paginateMeta,
+} from "@/lib/pagination"
+
+export { parsePage } from "@/lib/pagination"
+export type { PaginatedResult } from "@/lib/pagination"
+
+export const ADMIN_PAGE_SIZE = DEFAULT_PAGE_SIZE
+
 export async function getAdminOverview() {
   const [
     userCount,
@@ -35,10 +45,14 @@ export async function getAdminOverview() {
   }
 }
 
-export async function listUsers() {
-  return prisma.user.findMany({
+export async function listUsers(page = 1) {
+  const total = await prisma.user.count()
+  const meta = paginateMeta(total, page, ADMIN_PAGE_SIZE)
+
+  const items = await prisma.user.findMany({
     orderBy: { createdAt: "desc" },
-    take: 100,
+    skip: meta.skip,
+    take: meta.pageSize,
     select: {
       id: true,
       email: true,
@@ -48,11 +62,24 @@ export async function listUsers() {
       _count: { select: { preferences: true, newsletters: true } },
     },
   })
+
+  return {
+    items,
+    total: meta.total,
+    page: meta.page,
+    pageSize: meta.pageSize,
+    totalPages: meta.totalPages,
+  }
 }
 
-export async function listSources() {
-  return prisma.newsSource.findMany({
+export async function listSources(page = 1) {
+  const total = await prisma.newsSource.count()
+  const meta = paginateMeta(total, page, ADMIN_PAGE_SIZE)
+
+  const items = await prisma.newsSource.findMany({
     orderBy: { createdAt: "desc" },
+    skip: meta.skip,
+    take: meta.pageSize,
     select: {
       id: true,
       name: true,
@@ -63,20 +90,34 @@ export async function listSources() {
       _count: { select: { articles: true } },
     },
   })
+
+  return {
+    items,
+    total: meta.total,
+    page: meta.page,
+    pageSize: meta.pageSize,
+    totalPages: meta.totalPages,
+  }
 }
 
-export async function searchArticles(query?: string) {
-  return prisma.article.findMany({
-    where: query
-      ? {
-          OR: [
-            { title: { contains: query, mode: "insensitive" } },
-            { summary: { contains: query, mode: "insensitive" } },
-          ],
-        }
-      : undefined,
+export async function searchArticles(query?: string, page = 1) {
+  const where = query
+    ? {
+        OR: [
+          { title: { contains: query, mode: "insensitive" as const } },
+          { summary: { contains: query, mode: "insensitive" as const } },
+        ],
+      }
+    : undefined
+
+  const total = await prisma.article.count({ where })
+  const meta = paginateMeta(total, page, ADMIN_PAGE_SIZE)
+
+  const items = await prisma.article.findMany({
+    where,
     orderBy: { createdAt: "desc" },
-    take: 50,
+    skip: meta.skip,
+    take: meta.pageSize,
     select: {
       id: true,
       title: true,
@@ -89,12 +130,24 @@ export async function searchArticles(query?: string) {
       _count: { select: { topics: true } },
     },
   })
+
+  return {
+    items,
+    total: meta.total,
+    page: meta.page,
+    pageSize: meta.pageSize,
+    totalPages: meta.totalPages,
+  }
 }
 
-export async function listAdminNewsletters() {
-  return prisma.newsletter.findMany({
+export async function listAdminNewsletters(page = 1) {
+  const total = await prisma.newsletter.count()
+  const meta = paginateMeta(total, page, ADMIN_PAGE_SIZE)
+
+  const items = await prisma.newsletter.findMany({
     orderBy: { createdAt: "desc" },
-    take: 100,
+    skip: meta.skip,
+    take: meta.pageSize,
     select: {
       id: true,
       subject: true,
@@ -105,13 +158,33 @@ export async function listAdminNewsletters() {
       _count: { select: { articles: true } },
     },
   })
+
+  return {
+    items,
+    total: meta.total,
+    page: meta.page,
+    pageSize: meta.pageSize,
+    totalPages: meta.totalPages,
+  }
 }
 
-export async function listWorkerExecutions() {
-  return prisma.workerExecution.findMany({
+export async function listWorkerExecutions(page = 1) {
+  const total = await prisma.workerExecution.count()
+  const meta = paginateMeta(total, page, ADMIN_PAGE_SIZE)
+
+  const items = await prisma.workerExecution.findMany({
     orderBy: { startedAt: "desc" },
-    take: 50,
+    skip: meta.skip,
+    take: meta.pageSize,
   })
+
+  return {
+    items,
+    total: meta.total,
+    page: meta.page,
+    pageSize: meta.pageSize,
+    totalPages: meta.totalPages,
+  }
 }
 
 export async function getAnalyticsSummary() {

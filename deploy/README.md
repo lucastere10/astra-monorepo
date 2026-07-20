@@ -9,7 +9,7 @@ Postgres stays on **Supabase**; secrets live in **Secret Manager**. No Terraform
 |----------|-----------------|---------|
 | Cloud Run Service `astra-web` | `apps/web/Dockerfile` | HTTPS traffic |
 | Cloud Run Job `astra-collect` | `collector collect` | Scheduler every 4h |
-| Cloud Run Job `astra-deliver` | `collector deliver` | Scheduler every hour |
+| Cloud Run Job `astra-deliver` | `collector deliver` | Scheduler 07:57 / 11:57 / 17:57 America/Sao_Paulo |
 
 ## One-time setup
 

@@ -4,7 +4,10 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 
 import { prisma } from "@workspace/database"
-import { COMMON_TIMEZONES } from "@workspace/shared/cadence"
+import {
+  DEFAULT_TIMEZONE,
+  isSendHourPreset,
+} from "@workspace/shared/cadence"
 import { MAX_TOPIC_WEIGHT, MIN_TOPIC_WEIGHT } from "@workspace/shared/topics"
 import { DOMAIN_EVENTS } from "@workspace/shared/events"
 
@@ -23,13 +26,17 @@ const preferenceSchema = z.object({
 
 const deliverySchema = z
   .object({
-    timezone: z.string().min(1),
+    timezone: z.literal(DEFAULT_TIMEZONE),
     autoSendEnabled: z.boolean(),
     dailyEnabled: z.boolean(),
-    dailySendHour: z.number().int().min(0).max(23),
+    dailySendHour: z.number().int().refine(isSendHourPreset, {
+      message: "Choose morning, midday, or evening.",
+    }),
     dailySendDays: z.array(z.number().int().min(0).max(6)),
     weeklyEnabled: z.boolean(),
-    weeklySendHour: z.number().int().min(0).max(23),
+    weeklySendHour: z.number().int().refine(isSendHourPreset, {
+      message: "Choose morning, midday, or evening.",
+    }),
     weeklySendDay: z.number().int().min(0).max(6),
   })
   .superRefine((data, ctx) => {
@@ -57,6 +64,17 @@ const payloadSchema = z.object({
 export interface PreferencesFormState {
   success?: boolean
   error?: string
+  delivery?: {
+    timezone: typeof DEFAULT_TIMEZONE
+    autoSendEnabled: boolean
+    dailyEnabled: boolean
+    dailySendHour: number
+    dailySendDays: number[]
+    weeklyEnabled: boolean
+    weeklySendHour: number
+    weeklySendDay: number
+  }
+  preferences?: Array<{ topicId: string; weight: number }>
 }
 
 export async function savePreferences(
@@ -92,15 +110,6 @@ export async function savePreferences(
     }
   }
 
-  const timezoneOk =
-    (COMMON_TIMEZONES as readonly string[]).includes(
-      result.data.delivery.timezone
-    ) || Boolean(result.data.delivery.timezone.trim())
-
-  if (!timezoneOk) {
-    return { error: "Please choose a valid timezone." }
-  }
-
   const uniqueDays = [...new Set(result.data.delivery.dailySendDays)].sort(
     (a, b) => a - b
   )
@@ -108,6 +117,7 @@ export async function savePreferences(
   await replaceUserPreferences(user.id, result.data.preferences)
   await updateDeliverySettings(user.id, {
     ...result.data.delivery,
+    timezone: DEFAULT_TIMEZONE,
     dailySendDays: uniqueDays,
   })
 
@@ -121,5 +131,13 @@ export async function savePreferences(
   revalidatePath("/preferences")
   revalidatePath("/dashboard")
 
-  return { success: true }
+  return {
+    success: true,
+    delivery: {
+      ...result.data.delivery,
+      timezone: DEFAULT_TIMEZONE,
+      dailySendDays: uniqueDays,
+    },
+    preferences: result.data.preferences,
+  }
 }

@@ -18,6 +18,31 @@ export const DEFAULT_DAILY_ENABLED = false
 export const DEFAULT_WEEKLY_ENABLED = true
 export const DEFAULT_DAILY_SEND_DAYS = [0, 1, 2, 3, 4, 5, 6] as const
 
+/** Standard delivery windows — keep the deliver scheduler aligned with these hours. */
+export const SEND_HOUR_PRESETS = [8, 12, 18] as const
+export type SendHourPreset = (typeof SEND_HOUR_PRESETS)[number]
+
+export function isSendHourPreset(hour: number): hour is SendHourPreset {
+  return (SEND_HOUR_PRESETS as readonly number[]).includes(hour)
+}
+
+/** Snap any hour to the nearest standard send window. */
+export function nearestSendHourPreset(hour: number): SendHourPreset {
+  let best: SendHourPreset = SEND_HOUR_PRESETS[0]
+  let bestDist = Infinity
+  for (const preset of SEND_HOUR_PRESETS) {
+    const dist = Math.min(
+      Math.abs(hour - preset),
+      24 - Math.abs(hour - preset)
+    )
+    if (dist < bestDist) {
+      best = preset
+      bestDist = dist
+    }
+  }
+  return best
+}
+
 /** Slightly higher diversity penalty for short digests. */
 export const DIVERSITY_PENALTY_BY_CADENCE: Record<NewsletterCadence, number> = {
   DAILY: 0.2,
@@ -56,21 +81,5 @@ export const WEEKDAY_LABELS = [
   "Saturday",
 ] as const
 
-/** Common IANA timezones offered in the preferences UI. */
-export const COMMON_TIMEZONES = [
-  "America/Sao_Paulo",
-  "America/New_York",
-  "America/Chicago",
-  "America/Denver",
-  "America/Los_Angeles",
-  "America/Mexico_City",
-  "America/Buenos_Aires",
-  "Europe/London",
-  "Europe/Paris",
-  "Europe/Berlin",
-  "Asia/Tokyo",
-  "Asia/Shanghai",
-  "Asia/Singapore",
-  "Australia/Sydney",
-  "UTC",
-] as const
+/** Supported delivery timezone (single-region for now). */
+export const COMMON_TIMEZONES = [DEFAULT_TIMEZONE] as const

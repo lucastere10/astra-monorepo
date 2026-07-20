@@ -59,12 +59,12 @@ collector deliver    # auto-send due newsletters for this local hour
 | Job | Cadence | Command |
 |-----|---------|---------|
 | Collect | every 3–6 hours | `collector collect` |
-| Deliver | every hour | `collector deliver` |
+| Deliver | 07:57, 11:57, 17:57 America/Sao_Paulo (3 min before send) | `collector deliver` |
 
 Deliver selects users where:
 
 - `autoSendEnabled` is true and they have topic preferences
-- current local hour matches `sendHour` (in their `timezone`)
+- current (or upcoming) local hour matches `sendHour` (morning/midday/evening in `America/Sao_Paulo`)
 - for `WEEKLY`, today matches `weeklySendDay` (0=Sunday … 6=Saturday)
 - they have not already received a `SENT` edition for the current day/week window
 
@@ -97,7 +97,7 @@ Production runs this image as two **Cloud Run Jobs**, triggered by **Cloud Sched
 | Job | Args | Schedule (default) |
 |-----|------|--------------------|
 | `astra-collect` | `collector collect` | every 4 hours |
-| `astra-deliver` | `collector deliver` | every hour |
+| `astra-deliver` | `collector deliver` | 07:57 / 11:57 / 17:57 America/Sao_Paulo |
 
 See the monorepo deploy docs:
 
