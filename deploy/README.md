@@ -134,8 +134,8 @@ docker build -f apps/web/Dockerfile -t astra-web .
 
 # Collector
 docker build -f workers/collector/Dockerfile -t astra-collector workers/collector
-docker run --rm --env-file workers/collector/.env astra-collector collect
-docker run --rm --env-file workers/collector/.env astra-collector deliver
+docker run --rm --env-file .env astra-collector collect
+docker run --rm --env-file .env astra-collector deliver
 ```
 
 ## Manifests in this folder

@@ -1,12 +1,16 @@
 import { Check } from "lucide-react"
 
-import { TOPICS } from "@workspace/shared/topics"
-import { Badge } from "@workspace/ui/components/badge"
-
 const HIGHLIGHTS = [
   "Per-topic weights, not just on/off switches",
   "Learns from what you open and read",
   "Update your preferences anytime",
+] as const
+
+const WEIGHT_PREVIEW = [
+  { name: "AI Agents", weight: 5 },
+  { name: "LLMs", weight: 4 },
+  { name: "MCP", weight: 3 },
+  { name: "Cloud", weight: 1 },
 ] as const
 
 export function Personalization() {
@@ -21,9 +25,9 @@ export function Personalization() {
             Tuned to exactly what you care about
           </h2>
           <p className="text-muted-foreground mt-4 text-balance">
-            Select the topics that matter and assign each a weight. Astra
-            uses these signals — combined with your engagement — to rank every
-            article just for you.
+            The demo above is on/off. After you join, assign each topic a
+            weight. Astra uses those signals — combined with your engagement —
+            to rank every article just for you.
           </p>
 
           <ul className="mt-8 space-y-3">
@@ -40,15 +44,26 @@ export function Personalization() {
 
         <div className="bg-card rounded-xl border p-6">
           <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
-            Available topics
+            Topic weights
           </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {TOPICS.map((topic) => (
-              <Badge key={topic.slug} variant="secondary" className="py-1">
-                {topic.name}
-              </Badge>
+          <ul className="mt-5 space-y-4">
+            {WEIGHT_PREVIEW.map((row) => (
+              <li key={row.name}>
+                <div className="mb-1.5 flex items-baseline justify-between gap-3 text-sm">
+                  <span className="font-medium">{row.name}</span>
+                  <span className="text-muted-foreground font-mono text-xs">
+                    {row.weight}/5
+                  </span>
+                </div>
+                <div className="bg-muted h-1.5 overflow-hidden rounded-full">
+                  <div
+                    className="bg-primary h-full rounded-full"
+                    style={{ width: `${(row.weight / 5) * 100}%` }}
+                  />
+                </div>
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
       </div>
     </section>

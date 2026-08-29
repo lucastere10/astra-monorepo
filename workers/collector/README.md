@@ -31,16 +31,17 @@ main.py                 # CLI: collect | deliver
 
 ## Setup
 
+Configure the repo root `.env` first (`cp .env.example .env` from the monorepo root).
+The worker reads that file automatically and uses `DIRECT_URL` (or `DATABASE_URL`) for Postgres.
+
 ```bash
 cd workers/collector
-cp .env.example .env          # set Supabase DATABASE_URL (and optionally OPENAI_API_KEY / EXA_API_KEY / RESEND_API_KEY)
 python -m venv .venv
 . .venv/Scripts/activate      # Windows PowerShell: .venv\Scripts\Activate.ps1
 pip install -e .
 ```
 
-Point `DATABASE_URL` at your Supabase project (direct connection, port 5432).
-Migrate and seed from the repo root (uses root `.env` with `DATABASE_URL` + `DIRECT_URL`):
+Migrate and seed from the repo root:
 
 ```bash
 pnpm --filter @workspace/database db:migrate:deploy
@@ -81,13 +82,10 @@ Without `RESEND_API_KEY`, `deliver` still creates newsletters and marks them
 ## Docker
 
 ```bash
-# From workers/collector
-docker build -t astra-collector .
+# From the monorepo root (recommended)
+docker build -f workers/collector/Dockerfile -t astra-collector workers/collector
 docker run --rm --env-file .env astra-collector collect
 docker run --rm --env-file .env astra-collector deliver
-
-# Or from the monorepo root (same Dockerfile)
-docker build -f workers/collector/Dockerfile -t astra-collector workers/collector
 ```
 
 ## Deploy GCP

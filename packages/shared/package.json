@@ -14,7 +14,8 @@
     "./scoring": "./src/scoring.ts",
     "./utils": "./src/utils.ts",
     "./cadence": "./src/cadence.ts",
-    "./branding": "./src/branding.ts"
+    "./branding": "./src/branding.ts",
+    "./sources": "./src/sources.ts"
   },
   "devDependencies": {
     "@workspace/typescript-config": "workspace:*",

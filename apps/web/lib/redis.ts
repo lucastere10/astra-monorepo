@@ -105,3 +105,22 @@ export async function cacheDel(key: string): Promise<void> {
     console.error("[redis] del failed", error)
   }
 }
+
+/** Increment a counter and set TTL on first hit. Returns null when Redis is unavailable. */
+export async function cacheIncr(
+  key: string,
+  ttlSeconds: number
+): Promise<number | null> {
+  const client = getRedis()
+  if (!client) return null
+  try {
+    const count = await client.incr(key)
+    if (count === 1) {
+      await client.expire(key, ttlSeconds)
+    }
+    return count
+  } catch (error) {
+    console.error("[redis] incr failed", error)
+    return null
+  }
+}

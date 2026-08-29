@@ -11,7 +11,7 @@ export function SiteFooter() {
           </span>
           <span className="text-foreground font-medium">Astra</span>
         </div>
-        <p>Personalized AI &amp; technology intelligence.</p>
+        <p>Daily &amp; weekly technology intelligence.</p>
         <div className="flex items-center gap-4">
           <Link href="/login" className="hover:text-foreground transition-colors">
             Sign in

@@ -19,13 +19,13 @@ export function Cta() {
           Start reading what actually matters
         </h2>
         <p className="text-muted-foreground mx-auto mt-4 max-w-xl text-balance">
-          Join Astra and get a personalized technology intelligence
-          newsletter, powered by AI.
+          Join Astra for a personalized technology briefing daily, weekly, or
+          both.
         </p>
         <div className="mt-8">
           <Button asChild size="lg">
             <Link href="/login">
-              Get started for free
+              Try for free
               <ArrowRight />
             </Link>
           </Button>

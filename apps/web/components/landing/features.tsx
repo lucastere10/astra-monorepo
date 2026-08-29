@@ -1,80 +1,121 @@
-import {
-  Brain,
-  Filter,
-  Gauge,
-  Mail,
-  Radar,
-  SlidersHorizontal,
-} from "lucide-react"
+import { Moon, Sunrise } from "lucide-react"
 
 import {
   Card,
+  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
+import { cn } from "@workspace/ui/lib/utils"
 
-const FEATURES = [
+const CAPABILITIES = [
   {
-    icon: Radar,
+    index: "01",
     title: "Continuous collection",
     description:
-      "We monitor curated sources around the clock, capturing new articles as they are published.",
+      "Curated sources, watched around the clock. New articles land as they are published — not once a week in a pile.",
+    span: "lg:col-span-2",
   },
   {
-    icon: Brain,
-    title: "AI enrichment",
+    index: "02",
+    title: "Enrichment",
     description:
-      "Every article is summarized, tagged with topics and keywords, and scored for quality.",
+      "Each piece is summarized, tagged, and scored for quality before it ever reaches a ranking pass.",
+    span: "lg:col-span-2",
   },
   {
-    icon: SlidersHorizontal,
+    index: "03",
     title: "Personalized ranking",
     description:
-      "A composite engine blends topic affinity, engagement, freshness and diversity — not just LLM prompts.",
+      "Topic affinity, engagement, freshness, and diversity — a composite score, not a single LLM prompt.",
+    span: "lg:col-span-2",
   },
   {
-    icon: Filter,
+    index: "04",
     title: "Smart de-duplication",
     description:
-      "Similar stories are clustered so you read the signal once, without the noise.",
+      "Similar stories are clustered so you read the signal once. The rest of the echo chamber stays out of the edition.",
+    span: "lg:col-span-3",
   },
   {
-    icon: Gauge,
+    index: "05",
     title: "Reading insights",
     description:
-      "Estimated reading time and difficulty help you plan what to read and when.",
-  },
-  {
-    icon: Mail,
-    title: "Weekly delivery",
-    description:
-      "A beautifully formatted newsletter lands in your inbox, tuned to your preferences.",
+      "Estimated reading time and difficulty sit beside every article, so you can pick a five-minute scan or a deeper read.",
+    span: "lg:col-span-3",
   },
 ] as const
 
 export function Features() {
   return (
     <section id="features" className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
-      <div className="mx-auto max-w-2xl text-center">
+      <div className="max-w-2xl">
         <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
           Everything you need to stay ahead
         </h2>
         <p className="text-muted-foreground mt-4 text-balance">
-          Astra is not just another newsletter. It is an intelligence
-          platform that learns what you care about.
+          Astra is not just another newsletter. It is an intelligence layer
+          that learns what you care about — then shows up on the cadence you
+          actually want.
         </p>
       </div>
 
-      <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {FEATURES.map((feature) => (
-          <Card key={feature.title} className="gap-3">
+      <div className="mt-12 grid gap-4 lg:grid-cols-6">
+        <Card className="lg:col-span-6 overflow-hidden py-0">
+          <div className="grid lg:grid-cols-2">
+            <CardHeader className="border-border/60 gap-3 py-8 lg:border-r">
+              <p className="text-primary font-mono text-xs font-semibold tracking-[0.2em] uppercase">
+                Cadence
+              </p>
+              <CardTitle className="text-2xl sm:text-3xl">
+                Daily &amp; Weekly delivery
+              </CardTitle>
+              <CardDescription className="text-base">
+                A short morning digest when the feed is moving, a richer Monday
+                briefing when you want the week in one sitting — or both.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid grid-cols-2 gap-0 p-0">
+              <div className="border-border/60 flex flex-col gap-3 border-t p-6 lg:border-t-0">
+                <span className="bg-primary/10 text-primary flex size-9 items-center justify-center rounded-lg">
+                  <Sunrise className="size-4" />
+                </span>
+                <p className="text-sm font-semibold">Astra Daily</p>
+                <p className="text-muted-foreground text-sm leading-relaxed">
+                  ~6 stories. Weekdays or every day. Morning, midday, or
+                  evening.
+                </p>
+                <p className="text-primary font-mono text-xs tracking-wide">
+                  ~08:00 · digest
+                </p>
+              </div>
+              <div className="border-border/60 flex flex-col gap-3 border-t border-l p-6 lg:border-t-0">
+                <span className="bg-primary/10 text-primary flex size-9 items-center justify-center rounded-lg">
+                  <Moon className="size-4" />
+                </span>
+                <p className="text-sm font-semibold">Astra Weekly</p>
+                <p className="text-muted-foreground text-sm leading-relaxed">
+                  Ten ranked stories, why they matter, and a tool of the week.
+                </p>
+                <p className="text-primary font-mono text-xs tracking-wide">
+                  Monday · briefing
+                </p>
+              </div>
+            </CardContent>
+          </div>
+        </Card>
+
+        {CAPABILITIES.map((item) => (
+          <Card key={item.index} className={cn(item.span, "gap-4")}>
             <CardHeader>
-              <span className="bg-primary/10 text-primary mb-2 flex size-10 items-center justify-center rounded-lg">
-                <feature.icon className="size-5" />
+              <span className="text-primary/35 font-mono text-4xl font-bold leading-none">
+                {item.index}
               </span>
-              <CardTitle>{feature.title}</CardTitle>
-              <CardDescription>{feature.description}</CardDescription>
+              <CardTitle className="mt-2">{item.title}</CardTitle>
+              <CardDescription className="leading-relaxed">
+                {item.description}
+              </CardDescription>
             </CardHeader>
           </Card>
         ))}

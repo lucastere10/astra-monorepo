@@ -5,6 +5,7 @@ import { prisma } from "@workspace/database"
 import { getAppUrl } from "@/lib/app-url"
 import { consumeMagicLinkToken } from "@/modules/auth/tokens"
 import { createSession } from "@/modules/auth/session"
+import { applyStashedDemoTopics } from "@/modules/demo/demo.service"
 
 export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get("token")
@@ -43,6 +44,12 @@ export async function GET(request: NextRequest) {
       where: { id: user.id },
       data: { emailVerified: new Date() },
     })
+  }
+
+  try {
+    await applyStashedDemoTopics(user.id, consumed.email)
+  } catch (error) {
+    console.error("[auth] apply demo topics failed", error)
   }
 
   await createSession(user)

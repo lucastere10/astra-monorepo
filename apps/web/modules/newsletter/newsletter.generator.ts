@@ -20,6 +20,7 @@ export interface NewsletterTemplateData {
   openPixelUrl: string
   unsubscribeUrl: string
   recipientEmail: string
+  sample?: boolean
 }
 
 function escapeHtml(value: string): string {
@@ -105,16 +106,26 @@ export function renderNewsletterHtml(data: NewsletterTemplateData): string {
         <tr><td style="padding:24px 28px 28px">
           <hr style="border:none;border-top:1px solid #e7e5e4;margin:0 0 16px" />
           <p style="color:#a8a29e;font-size:12px;line-height:1.6;margin:0">
-            You are receiving ${BRAND_NAME} because you subscribed with ${escapeHtml(
-              data.recipientEmail
-            )}.<br />
-            <a href="${data.unsubscribeUrl}" style="color:#a8a29e">Unsubscribe</a>
+            ${
+              data.sample
+                ? `This is a sample ${escapeHtml(data.branding)} edition sent to ${escapeHtml(
+                    data.recipientEmail
+                  )}. It is not a subscription.`
+                : `You are receiving ${BRAND_NAME} because you subscribed with ${escapeHtml(
+                    data.recipientEmail
+                  )}.<br />
+            <a href="${data.unsubscribeUrl}" style="color:#a8a29e">Unsubscribe</a>`
+            }
           </p>
         </td></tr>
       </table>
     </td></tr>
   </table>
-  <img src="${data.openPixelUrl}" width="1" height="1" alt="" style="display:none" />
+  ${
+    data.sample
+      ? ""
+      : `<img src="${data.openPixelUrl}" width="1" height="1" alt="" style="display:none" />`
+  }
 </body>
 </html>`
 }

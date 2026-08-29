@@ -44,7 +44,8 @@ export default async function LoginPage({
       <LoginForm />
 
       <p className="text-muted-foreground text-center text-xs">
-        No password needed. We will email you a secure link.
+        No password needed. This is a personal project with no plans to
+        charge.
       </p>
     </div>
   )
