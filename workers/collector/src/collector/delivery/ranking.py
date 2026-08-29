@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from urllib.parse import urlparse
 
 from ..repository import CandidateArticle
 
@@ -15,8 +16,9 @@ SCORE_WEIGHTS = {
     "diversityBonus": 0.1,
 }
 
-ARTICLE_LIMIT = {"DAILY": 4, "WEEKLY": 8}
+ARTICLE_LIMIT = {"DAILY": 6, "WEEKLY": 10}
 DIVERSITY_PENALTY = {"DAILY": 0.2, "WEEKLY": 0.15}
+SOURCE_FAMILY_CAP = {"DAILY": 1, "WEEKLY": 2}
 
 
 def clamp01(value: float) -> float:
@@ -58,6 +60,18 @@ def compute_rank_score(
     )
 
 
+def source_family(source_url: str | None) -> str:
+    """Group sibling feeds (HN, arXiv, Exa) by NewsSource URL host."""
+    if not source_url:
+        return "unknown"
+    trimmed = source_url.strip()
+    if trimmed.startswith("exa:") or trimmed.startswith("exa://"):
+        return "exa"
+    parsed = urlparse(trimmed)
+    host = (parsed.hostname or "").removeprefix("www.")
+    return host or trimmed
+
+
 @dataclass
 class RankedArticle:
     article: CandidateArticle
@@ -83,15 +97,16 @@ def rank_articles_for_user(
     engagement_by_topic: dict[str, int],
     cadence: str,
 ) -> list[RankedArticle]:
-    limit = ARTICLE_LIMIT.get(cadence, 8)
+    limit = ARTICLE_LIMIT.get(cadence, 10)
     diversity_penalty = DIVERSITY_PENALTY.get(cadence, 0.15)
+    family_cap = SOURCE_FAMILY_CAP.get(cadence, 2)
 
     weight_by_topic = {tid: w for tid, w in topic_weights}
     total_weight = sum(weight_by_topic.values()) or 0.0
     max_engagement = max([1, *engagement_by_topic.values()])
 
     now = datetime.now(timezone.utc)
-    scored: list[tuple[CandidateArticle, float, str | None, float]] = []
+    scored: list[tuple[CandidateArticle, float, str | None, float, str]] = []
 
     for article in candidates:
         affinity_num = 0.0
@@ -120,7 +135,13 @@ def rank_articles_for_user(
             fresh=fresh,
         )
         scored.append(
-            (article, base, top_topic[0] if top_topic else None, fresh)
+            (
+                article,
+                base,
+                top_topic[0] if top_topic else None,
+                fresh,
+                source_family(article.source_url),
+            )
         )
 
     scored.sort(key=lambda x: x[1], reverse=True)
@@ -128,8 +149,9 @@ def rank_articles_for_user(
     selected: list[RankedArticle] = []
     seen_clusters: set[str] = set()
     topic_usage: dict[str, int] = {}
+    family_usage: dict[str, int] = {}
 
-    for article, base, top_topic, fresh in scored:
+    for article, base, top_topic, fresh, family in scored:
         if len(selected) >= limit:
             break
 
@@ -137,9 +159,17 @@ def rank_articles_for_user(
             if article.duplicate_cluster in seen_clusters:
                 continue
 
+        family_count = family_usage.get(family, 0)
+        if family_count >= family_cap:
+            continue
+
         primary_topic = article.topics[0][0] if article.topics else None
-        usage = topic_usage.get(primary_topic, 0) if primary_topic else 0
-        adjusted = base - usage * diversity_penalty
+        topic_count = topic_usage.get(primary_topic, 0) if primary_topic else 0
+        adjusted = (
+            base
+            - topic_count * diversity_penalty
+            - family_count * diversity_penalty
+        )
 
         selected.append(
             RankedArticle(
@@ -153,7 +183,8 @@ def rank_articles_for_user(
         if article.duplicate_cluster:
             seen_clusters.add(article.duplicate_cluster)
         if primary_topic:
-            topic_usage[primary_topic] = usage + 1
+            topic_usage[primary_topic] = topic_count + 1
+        family_usage[family] = family_count + 1
 
     selected.sort(key=lambda r: r.score, reverse=True)
     return selected

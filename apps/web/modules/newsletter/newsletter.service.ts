@@ -9,26 +9,18 @@ import {
   inferCadenceForGenerate,
   type NewsletterCadence,
 } from "@workspace/shared/cadence"
-import { BRAND_NAME, BRAND_PRODUCT } from "@workspace/shared/branding"
+import { BRAND_PRODUCT } from "@workspace/shared/branding"
 import { DOMAIN_EVENTS } from "@workspace/shared/events"
 
 import { getAppUrl } from "@/lib/app-url"
 import { dispatchEvent } from "@/lib/events"
 import { rankArticlesForUser } from "@/modules/recommendation/recommendation.service"
+import { buildSubject } from "./newsletter.copy"
 import {
   renderNewsletterHtml,
   type NewsletterArticleView,
 } from "./newsletter.generator"
-
-function buildSubject(trending: string | null): string {
-  const date = new Date().toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-  })
-  return trending
-    ? `Your ${trending} briefing — ${date}`
-    : `Your ${BRAND_NAME} briefing — ${date}`
-}
+import { writeNewsletterCopy } from "./newsletter.voice"
 
 /**
  * Generate (but do not send) a personalized newsletter for a user. Returns the
@@ -81,10 +73,21 @@ export async function generateNewsletterForUser(
     [...topicCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
 
   const subject = buildSubject(trendingTopic)
-  const periodWord = cadence === "DAILY" ? "today" : "this week"
-  const intro = `We curated ${ranked.length} stories tuned to your interests${
-    trendingTopic ? `, with extra signal on ${trendingTopic}` : ""
-  }. Here is what matters most ${periodWord}.`
+  const copy = await writeNewsletterCopy({
+    cadence,
+    trendingTopic,
+    articles: ranked.map((r) => {
+      const article = byId.get(r.articleId)
+      return {
+        id: r.articleId,
+        title: article?.title ?? r.title,
+        summary: article?.summary ?? null,
+        topic: r.topTopic,
+        fallbackReason: r.reason,
+      }
+    }),
+  })
+  const intro = copy.intro
 
   const newsletter = await prisma.newsletter.create({
     data: {
@@ -104,7 +107,7 @@ export async function generateNewsletterForUser(
       newsletterId: newsletter.id,
       articleId: r.articleId,
       rank: index + 1,
-      reason: r.reason,
+      reason: copy.reasons[r.articleId] ?? r.reason,
       trackedUrl: trackedUrlFor(r.articleId),
     })),
     skipDuplicates: true,
@@ -117,7 +120,7 @@ export async function generateNewsletterForUser(
       {
         title: article.title,
         summary: article.summary,
-        reason: r.reason,
+        reason: copy.reasons[r.articleId] ?? r.reason,
         sourceName: article.source?.name ?? null,
         readingTimeMin: article.readingTimeMin,
         topics: article.topics.map((t) => t.topic.name),

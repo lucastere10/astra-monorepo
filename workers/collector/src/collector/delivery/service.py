@@ -14,6 +14,7 @@ from ..config import Settings
 from .email import send_email
 from .html import ArticleView, TemplateData, render_newsletter_html
 from .ranking import rank_articles_for_user
+from .voice import write_newsletter_copy
 
 DEFAULT_TIMEZONE = "America/Sao_Paulo"
 SEND_HOUR_PRESETS = (8, 12, 18)
@@ -153,12 +154,23 @@ def deliver_for_slot(
     topic_counts = Counter(r.top_topic for r in ranked if r.top_topic)
     trending = topic_counts.most_common(1)[0][0] if topic_counts else None
     subject = build_subject(trending)
-    period_word = "today" if cadence == "DAILY" else "this week"
-    intro = (
-        f"We curated {len(ranked)} stories tuned to your interests"
-        + (f", with extra signal on {trending}" if trending else "")
-        + f". Here is what matters most {period_word}."
+    copy = write_newsletter_copy(
+        settings,
+        cadence=cadence,
+        trending_topic=trending,
+        articles=[
+            {
+                "id": item.article.id,
+                "title": item.article.title,
+                "summary": item.article.summary,
+                "topic": item.top_topic,
+                "fallback_reason": item.reason,
+            }
+            for item in ranked
+        ],
     )
+    intro = copy["intro"]
+    reasons: dict[str, str] = copy["reasons"]
 
     newsletter_id = repository.new_id()
     unsubscribe_url = f"{settings.app_url}/unsubscribe?t={user.unsubscribe_token}"
@@ -173,11 +185,12 @@ def deliver_for_slot(
             f"?n={newsletter_id}&a={item.article.id}"
         )
         topics = [t[2] for t in item.article.topics]
+        reason = reasons.get(item.article.id) or item.reason
         views.append(
             ArticleView(
                 title=item.article.title,
                 summary=item.article.summary,
-                reason=item.reason,
+                reason=reason,
                 source_name=item.article.source_name,
                 reading_time_min=item.article.reading_time_min,
                 topics=topics,
@@ -222,7 +235,7 @@ def deliver_for_slot(
             newsletter_id=newsletter_id,
             article_id=item.article.id,
             rank=rank_index,
-            reason=item.reason,
+            reason=reasons.get(item.article.id) or item.reason,
             tracked_url=(
                 f"{settings.app_url}/api/track/click"
                 f"?n={newsletter_id}&a={item.article.id}"

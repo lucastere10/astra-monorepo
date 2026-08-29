@@ -48,16 +48,24 @@ Without `RESEND_API_KEY`, magic-link emails are logged to the server console.
 
 ## Run the collector worker
 
+Uses the same root `.env` as the web app (reads `DIRECT_URL` for Postgres).
+
+```bash
+make collect    # ingest + enrich sources
+make deliver    # generate/send due newsletters
+```
+
+Or manually:
+
 ```bash
 cd workers/collector
-cp .env.example .env   # same DATABASE_URL (direct/5432), optional API keys
 python -m venv .venv
 # Windows PowerShell:
 . .venv\Scripts\Activate.ps1
 pip install -e .
 
-collector collect    # ingest + enrich sources
-collector deliver    # generate/send due newsletters
+collector collect
+collector deliver
 ```
 
 See [workers/collector/README.md](workers/collector/README.md) for architecture and cron suggestions.

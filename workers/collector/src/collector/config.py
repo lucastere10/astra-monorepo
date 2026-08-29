@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from pathlib import Path
 
 from dotenv import load_dotenv
 
-load_dotenv()
+# Monorepo root `.env` (same file as web app + Prisma).
+_REPO_ROOT = Path(__file__).resolve().parents[4]
+load_dotenv(_REPO_ROOT / ".env")
 
 
 def _normalize_db_url(url: str) -> str:
@@ -41,14 +44,15 @@ class Settings:
 
     @classmethod
     def from_env(cls) -> "Settings":
-        raw_db = os.environ.get("DATABASE_URL")
+        # Workers need a direct Postgres connection; web app may use the pooler URL.
+        raw_db = os.environ.get("DIRECT_URL") or os.environ.get("DATABASE_URL")
         if not raw_db:
-            raise RuntimeError("DATABASE_URL is not set")
+            raise RuntimeError("DIRECT_URL or DATABASE_URL is not set in the repo root .env")
 
         return cls(
             database_url=_normalize_db_url(raw_db),
             openai_api_key=os.environ.get("OPENAI_API_KEY") or None,
-            openai_model=os.environ.get("OPENAI_MODEL", "gpt-4o-mini"),
+            openai_model=os.environ.get("OPENAI_MODEL", "gpt-5.6-luna"),
             openai_embedding_model=os.environ.get(
                 "OPENAI_EMBEDDING_MODEL", "text-embedding-3-small"
             ),
@@ -75,4 +79,8 @@ class Settings:
         )
 
 
-settings = Settings.from_env() if os.environ.get("DATABASE_URL") else None
+settings = (
+    Settings.from_env()
+    if os.environ.get("DIRECT_URL") or os.environ.get("DATABASE_URL")
+    else None
+)

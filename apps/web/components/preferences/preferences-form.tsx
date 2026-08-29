@@ -360,7 +360,7 @@ export function PreferencesForm({ initial, delivery }: PreferencesFormProps) {
                 </span>
               </div>
               <p className="text-muted-foreground text-sm leading-relaxed">
-                ~4 stories on the days you choose — a quick pulse of what
+                ~6 stories on the days you choose — a quick pulse of what
                 matters.
               </p>
               <p className="text-muted-foreground text-xs">
@@ -432,7 +432,7 @@ export function PreferencesForm({ initial, delivery }: PreferencesFormProps) {
                 </span>
               </div>
               <p className="text-muted-foreground text-sm leading-relaxed">
-                ~8 stories once a week — a fuller briefing you can sit with.
+                ~10 stories once a week — a fuller briefing you can sit with.
               </p>
               <p className="text-muted-foreground text-xs">
                 Best for a weekend or Monday catch-up.

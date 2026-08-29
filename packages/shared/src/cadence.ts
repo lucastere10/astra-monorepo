@@ -2,14 +2,11 @@ export const NEWSLETTER_CADENCES = ["DAILY", "WEEKLY"] as const
 
 export type NewsletterCadence = (typeof NEWSLETTER_CADENCES)[number]
 
-/** Default article count for each cadence. Daily is clamped 3–5 elsewhere. */
+/** Default article count for each cadence. */
 export const CADENCE_ARTICLE_LIMIT: Record<NewsletterCadence, number> = {
-  DAILY: 4,
-  WEEKLY: 8,
+  DAILY: 6,
+  WEEKLY: 10,
 }
-
-export const MIN_DAILY_ARTICLES = 3
-export const MAX_DAILY_ARTICLES = 5
 
 export const DEFAULT_SEND_HOUR = 8
 export const DEFAULT_TIMEZONE = "America/Sao_Paulo"
@@ -49,14 +46,14 @@ export const DIVERSITY_PENALTY_BY_CADENCE: Record<NewsletterCadence, number> = {
   WEEKLY: 0.15,
 }
 
+/** Max articles from the same source family in one digest. */
+export const SOURCE_FAMILY_CAP_BY_CADENCE: Record<NewsletterCadence, number> = {
+  DAILY: 1,
+  WEEKLY: 2,
+}
+
 export function articleLimitForCadence(cadence: NewsletterCadence): number {
-  if (cadence === "DAILY") {
-    return Math.min(
-      MAX_DAILY_ARTICLES,
-      Math.max(MIN_DAILY_ARTICLES, CADENCE_ARTICLE_LIMIT.DAILY)
-    )
-  }
-  return CADENCE_ARTICLE_LIMIT.WEEKLY
+  return CADENCE_ARTICLE_LIMIT[cadence]
 }
 
 /** Prefer weekly when both (or neither) are enabled — richer on-demand edition. */

@@ -17,7 +17,7 @@ substitutions:
   # Set to the Cloud Run URL (or custom domain) after first deploy / in the trigger.
   _NEXT_PUBLIC_APP_URL: "https://astra.caldasdev.com.br"
   _APP_URL: "https://astra.caldasdev.com.br"
-  _OPENAI_MODEL: gpt-4o-mini
+  _OPENAI_MODEL: gpt-5.6-luna
   _OPENAI_EMBEDDING_MODEL: text-embedding-3-small
   _COLLECT_CRON: "0 7 * * *"
   # 3 min before morning / midday / evening (America/Sao_Paulo).

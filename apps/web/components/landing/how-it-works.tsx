@@ -15,7 +15,7 @@ const STEPS = [
     step: "03",
     title: "Get your newsletter",
     description:
-      "Each week you receive a personalized edition with the top articles, why they matter, and a tool of the week.",
+      "Choose a weekly briefing, an optional daily digest, or both — top articles, why they matter, and a tool of the week.",
   },
 ] as const
 

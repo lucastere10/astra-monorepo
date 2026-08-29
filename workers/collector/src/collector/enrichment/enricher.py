@@ -14,6 +14,7 @@ from bs4 import BeautifulSoup
 
 from ..config import Settings
 from ..models import Enrichment, RawArticle
+from ..openai_chat import create_chat_completion
 
 _WORDS_PER_MINUTE = 220
 
@@ -104,7 +105,8 @@ def _openai(raw: RawArticle, settings: Settings) -> Enrichment | None:
             f"TITLE: {raw.title}\n\nCONTENT: {text}"
         )
 
-        completion = client.chat.completions.create(
+        completion = create_chat_completion(
+            client,
             model=settings.openai_model,
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"},
