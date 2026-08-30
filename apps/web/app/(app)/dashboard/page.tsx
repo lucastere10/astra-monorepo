@@ -5,18 +5,17 @@ import { ArrowRight, Mail, Sparkles, SlidersHorizontal } from "lucide-react"
 import { prisma } from "@workspace/database"
 import { formatRelativeTime } from "@workspace/shared/utils"
 import { Button } from "@workspace/ui/components/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@workspace/ui/components/card"
 
 import { requireUser } from "@/modules/auth/dal"
 
 export const metadata: Metadata = {
   title: "Dashboard",
+}
+
+function topicSummary(count: number): string {
+  if (count === 0) return "No topics selected yet."
+  if (count === 1) return "You're tracking 1 topic."
+  return `You're tracking ${count} topics.`
 }
 
 export default async function DashboardPage() {
@@ -36,6 +35,17 @@ export default async function DashboardPage() {
 
   const needsOnboarding = topicCount === 0
 
+  const stats = [
+    { label: "Active topics", value: String(topicCount) },
+    { label: "Newsletters received", value: String(newsletterCount) },
+    {
+      label: "Last edition",
+      value: lastNewsletter
+        ? formatRelativeTime(lastNewsletter.createdAt)
+        : "None yet",
+    },
+  ]
+
   return (
     <div className="mx-auto max-w-5xl">
       <header className="mb-8">
@@ -48,91 +58,70 @@ export default async function DashboardPage() {
       </header>
 
       {needsOnboarding && (
-        <Card className="border-primary/30 bg-primary/5 mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Sparkles className="text-primary size-4" />
-              Finish setting up your feed
-            </CardTitle>
-            <CardDescription>
-              Pick the topics you care about so we can start personalizing your
-              newsletter.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button asChild size="sm">
-              <Link href="/preferences">
-                Choose topics
-                <ArrowRight />
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="bg-muted/40 mb-8 border px-5 py-4">
+          <p className="flex items-center gap-2 text-sm font-semibold">
+            <Sparkles className="text-primary size-4" />
+            Finish setting up your feed
+          </p>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Pick the topics you care about so we can start personalizing your
+            newsletter.
+          </p>
+          <Button asChild size="sm" className="mt-3">
+            <Link href="/preferences">
+              Choose topics
+              <ArrowRight />
+            </Link>
+          </Button>
+        </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardDescription>Active topics</CardDescription>
-            <CardTitle className="text-3xl">{topicCount}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardDescription>Newsletters received</CardDescription>
-            <CardTitle className="text-3xl">{newsletterCount}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardDescription>Last edition</CardDescription>
-            <CardTitle className="text-base">
-              {lastNewsletter
-                ? formatRelativeTime(lastNewsletter.createdAt)
-                : "None yet"}
-            </CardTitle>
-          </CardHeader>
-        </Card>
-      </div>
+      <dl className="grid border-y sm:grid-cols-3">
+        {stats.map((stat, index) => (
+          <div
+            key={stat.label}
+            className={
+              index === 0
+                ? "py-5 sm:pr-6"
+                : "border-t py-5 sm:border-t-0 sm:border-l sm:px-6"
+            }
+          >
+            <dt className="text-muted-foreground text-sm">{stat.label}</dt>
+            <dd className="mt-1 text-2xl font-semibold tracking-tight tabular-nums">
+              {stat.value}
+            </dd>
+          </div>
+        ))}
+      </dl>
 
-      <div className="mt-6 grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <SlidersHorizontal className="size-4" />
-              Your preferences
-            </CardTitle>
-            <CardDescription>
-              {topicCount > 0
-                ? `You're tracking ${topicCount} topic${topicCount === 1 ? "" : "s"}.`
-                : "No topics selected yet."}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button asChild variant="outline" size="sm">
-              <Link href="/preferences">Manage preferences</Link>
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="mt-10 grid gap-8 border-t pt-8 md:grid-cols-2 md:gap-12">
+        <div>
+          <h2 className="flex items-center gap-2 text-base font-semibold">
+            <SlidersHorizontal className="size-4" />
+            Your preferences
+          </h2>
+          <p className="text-muted-foreground mt-2 text-sm">
+            {topicSummary(topicCount)}
+          </p>
+          <Button asChild variant="outline" size="sm" className="mt-4">
+            <Link href="/preferences">Manage preferences</Link>
+          </Button>
+        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Mail className="size-4" />
-              Your newsletters
-            </CardTitle>
-            <CardDescription>
-              {lastNewsletter
-                ? lastNewsletter.subject
-                : "Your first edition will appear here."}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button asChild variant="outline" size="sm">
-              <Link href="/newsletters">View history</Link>
-            </Button>
-          </CardContent>
-        </Card>
+        <div>
+          <h2 className="flex items-center gap-2 text-base font-semibold">
+            <Mail className="size-4" />
+            Your newsletters
+          </h2>
+          <p className="text-muted-foreground mt-2 text-sm">
+            {lastNewsletter
+              ? lastNewsletter.subject
+              : "Your first edition will appear here."}
+          </p>
+          <Button asChild variant="outline" size="sm" className="mt-4">
+            <Link href="/newsletters">View history</Link>
+          </Button>
+        </div>
       </div>
     </div>
   )

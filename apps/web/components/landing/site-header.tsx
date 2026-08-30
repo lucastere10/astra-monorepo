@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useId, useState } from "react"
 import Link from "next/link"
-import { Sparkles } from "lucide-react"
+import { Menu, X } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
 import { cn } from "@workspace/ui/lib/utils"
@@ -10,9 +10,7 @@ import { cn } from "@workspace/ui/lib/utils"
 import { ThemeToggle } from "@/components/theme-toggle"
 
 const NAV_LINKS = [
-  { href: "#try-now", label: "Try it" },
   { href: "#features", label: "Features" },
-  { href: "#how-it-works", label: "How it works" },
   { href: "#personalization", label: "Personalization" },
   { href: "#faq", label: "FAQ" },
 ] as const
@@ -21,6 +19,8 @@ const SCROLL_THRESHOLD = 24
 
 export function SiteHeader() {
   const [scrolled, setScrolled] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuId = useId()
 
   useEffect(() => {
     function onScroll() {
@@ -31,39 +31,34 @@ export function SiteHeader() {
     return () => window.removeEventListener("scroll", onScroll)
   }, [])
 
+  useEffect(() => {
+    if (!menuOpen) return
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setMenuOpen(false)
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [menuOpen])
+
+  function closeMenu() {
+    setMenuOpen(false)
+  }
+
   return (
     <header
       className={cn(
-        "fixed inset-x-0 top-0 z-50 transition-[background-color,border-color,box-shadow] duration-300",
-        scrolled
-          ? "border-border/60 bg-background/80 border-b shadow-sm backdrop-blur-md"
+        "fixed inset-x-0 top-0 z-50 transition-[background-color,border-color] duration-300",
+        scrolled || menuOpen
+          ? "border-border/60 bg-background border-b"
           : "border-b border-transparent bg-transparent"
       )}
     >
       <div className="mx-auto flex h-14 max-w-6xl items-center px-4 sm:px-6">
-        <Link
-          href="/"
-          className={cn(
-            "flex items-center gap-2 transition-all duration-300",
-            scrolled
-              ? "translate-y-0 opacity-100"
-              : "pointer-events-none -translate-y-1 opacity-0"
-          )}
-        >
-          <span className="bg-primary/10 text-primary flex size-7 items-center justify-center rounded-md">
-            <Sparkles className="size-4" />
-          </span>
-          <span className="text-sm font-semibold tracking-tight">Astra</span>
+        <Link href="/" className="text-lg font-semibold tracking-tight">
+          Astra
         </Link>
 
-        <nav
-          className={cn(
-            "hidden flex-1 items-center justify-center gap-6 transition-all duration-300 md:flex",
-            scrolled
-              ? "translate-y-0 opacity-100"
-              : "pointer-events-none -translate-y-1 opacity-0"
-          )}
-        >
+        <nav className="ml-8 hidden flex-1 items-center gap-6 md:flex">
           {NAV_LINKS.map((link) => (
             <Link
               key={link.href}
@@ -79,21 +74,42 @@ export function SiteHeader() {
           <Button asChild variant="ghost" size="sm">
             <Link href="/login">Sign in</Link>
           </Button>
-          <div
-            className={cn(
-              "transition-all duration-300",
-              scrolled
-                ? "translate-y-0 opacity-100"
-                : "pointer-events-none w-0 overflow-hidden opacity-0"
-            )}
-          >
-            <Button asChild size="sm">
-              <Link href="/login">Try for free</Link>
-            </Button>
-          </div>
           <ThemeToggle />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="md:hidden size-11"
+            aria-expanded={menuOpen}
+            aria-controls={menuId}
+            aria-label={menuOpen ? "Close menu" : "Open menu"}
+            onClick={() => setMenuOpen((open) => !open)}
+          >
+            {menuOpen ? <X /> : <Menu />}
+          </Button>
         </div>
       </div>
+
+      {menuOpen ? (
+        <nav
+          id={menuId}
+          className="border-border/60 bg-background border-t md:hidden"
+        >
+          <ul className="mx-auto flex max-w-6xl flex-col px-4 py-2 sm:px-6">
+            {NAV_LINKS.map((link) => (
+              <li key={link.href}>
+                <Link
+                  href={link.href}
+                  onClick={closeMenu}
+                  className="text-foreground flex min-h-11 items-center text-sm"
+                >
+                  {link.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      ) : null}
     </header>
   )
 }

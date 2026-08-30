@@ -1,13 +1,5 @@
 import type { Metadata } from "next"
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@workspace/ui/components/card"
-
 import { getAnalyticsSummary } from "@/modules/admin/admin.service"
 
 export const metadata: Metadata = {
@@ -35,34 +27,33 @@ export default async function AdminAnalyticsPage() {
         </p>
       </header>
 
-      <Card>
-        <CardHeader>
-          <CardDescription>Total events</CardDescription>
-          <CardTitle className="text-3xl">{summary.total}</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          {summary.byType.length === 0 ? (
-            <p className="text-muted-foreground text-sm">No events yet.</p>
-          ) : (
-            summary.byType.map((row) => (
-              <div key={row.type} className="flex flex-col gap-1.5">
-                <div className="flex items-center justify-between text-sm">
-                  <span>{labelFor(row.type)}</span>
-                  <span className="text-muted-foreground font-mono text-xs">
-                    {row.count}
-                  </span>
-                </div>
-                <div className="bg-muted h-2 overflow-hidden rounded-full">
-                  <div
-                    className="bg-primary h-full rounded-full"
-                    style={{ width: `${(row.count / max) * 100}%` }}
-                  />
-                </div>
+      <p className="text-muted-foreground text-sm">Total events</p>
+      <p className="mt-1 text-3xl font-semibold tracking-tight tabular-nums">
+        {summary.total}
+      </p>
+
+      <div className="mt-8 flex flex-col gap-4 border-t pt-6">
+        {summary.byType.length === 0 ? (
+          <p className="text-muted-foreground text-sm">No events yet.</p>
+        ) : (
+          summary.byType.map((row) => (
+            <div key={row.type} className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between text-sm">
+                <span>{labelFor(row.type)}</span>
+                <span className="text-muted-foreground font-mono text-xs tabular-nums">
+                  {row.count}
+                </span>
               </div>
-            ))
-          )}
-        </CardContent>
-      </Card>
+              <div className="bg-muted h-2 overflow-hidden rounded-full">
+                <div
+                  className="bg-primary h-full rounded-full"
+                  style={{ width: `${(row.count / max) * 100}%` }}
+                />
+              </div>
+            </div>
+          ))
+        )}
+      </div>
     </div>
   )
 }

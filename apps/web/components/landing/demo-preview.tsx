@@ -1,11 +1,18 @@
+"use client"
+
 import { Clock, ExternalLink, Loader2 } from "lucide-react"
-import type { ReactNode } from "react"
+import { motion, useAnimationControls, useReducedMotion } from "motion/react"
+import { useLayoutEffect, type ReactNode } from "react"
 
 import { Badge } from "@workspace/ui/components/badge"
-import { Separator } from "@workspace/ui/components/separator"
 import { cn } from "@workspace/ui/lib/utils"
 
 import type { DemoPreview } from "@/modules/demo/types"
+
+const EASE = [0.16, 1, 0.3, 1] as const
+
+const PAPER =
+  "bg-background dark:bg-card border px-6 py-10 shadow-[0_12px_40px_rgb(0_0_0/0.08)] sm:px-10 dark:shadow-[0_16px_48px_rgb(0_0_0/0.45)]"
 
 interface DemoPreviewCanvasProps {
   preview: DemoPreview | null
@@ -23,38 +30,62 @@ function topicList(names: string[]): string {
 
 function LoadingState() {
   return (
-    <div className="bg-card mt-12 flex flex-col items-center gap-3 rounded-xl border px-6 py-16 text-center shadow-sm">
-      <Loader2 className="text-primary size-6 animate-spin" />
-      <p className="text-sm font-medium">Ranking stories for you…</p>
-      <p className="text-muted-foreground text-xs">
+    <div className={cn(PAPER, "mt-10")}>
+      <p className="flex items-center gap-2 text-sm font-medium">
+        <Loader2 className="text-primary size-4 animate-spin" />
+        Ranking stories for you…
+      </p>
+      <p className="text-muted-foreground mt-2 text-sm">
         Scoring freshness, topic fit, and diversity.
       </p>
-    </div>
-  )
-}
-
-function EmptyState({ error }: Readonly<{ error: string | null }>) {
-  return (
-    <div className="bg-card mt-12 rounded-xl border px-6 py-16 text-center shadow-sm">
-      <p className="text-sm font-medium">No edition yet</p>
-      <p className="text-muted-foreground mt-2 text-sm">
-        {error ??
-          "Pick at least two topics above and generate a live preview."}
-      </p>
+      <div className="mt-10 space-y-6" aria-hidden>
+        <div className="bg-muted h-3 w-2/5" />
+        <div className="bg-muted h-7 w-4/5" />
+        <div className="space-y-2">
+          <div className="bg-muted h-2.5 w-full" />
+          <div className="bg-muted h-2.5 w-[92%]" />
+          <div className="bg-muted h-2.5 w-3/4" />
+        </div>
+        <div className="border-border/60 space-y-2 border-t pt-6">
+          <div className="bg-muted h-2.5 w-full" />
+          <div className="bg-muted h-2.5 w-5/6" />
+        </div>
+        <div className="border-border/60 space-y-2 border-t pt-6">
+          <div className="bg-muted h-2.5 w-full" />
+          <div className="bg-muted h-2.5 w-2/3" />
+        </div>
+      </div>
     </div>
   )
 }
 
 function PreviewEdition({ preview }: Readonly<{ preview: DemoPreview }>) {
+  const reduceMotion = useReducedMotion()
+  const skipTravel = reduceMotion !== false
+  const paperControls = useAnimationControls()
+
+  useLayoutEffect(() => {
+    if (reduceMotion !== false) return
+    paperControls.set({ clipPath: "inset(0 0 100% 0)" })
+    void paperControls.start({
+      clipPath: "inset(0 0 0% 0)",
+      transition: { duration: 0.5, ease: EASE },
+    })
+  }, [reduceMotion, paperControls, preview.previewId])
+
   return (
-    <article className="bg-card mt-12 overflow-hidden rounded-xl border shadow-sm">
-      <header className="animate-in fade-in slide-in-from-bottom-2 border-b p-6 duration-500">
-        <p className="text-primary text-xs font-semibold uppercase tracking-wide">
-          Astra Weekly
-        </p>
-        <h3 className="mt-1 text-xl font-semibold">{preview.subject}</h3>
+    <motion.article
+      className={cn(PAPER, "mt-10 overflow-hidden")}
+      initial={false}
+      animate={paperControls}
+    >
+      <header className="max-w-prose">
+        <p className="text-lg font-semibold tracking-tight">Astra Weekly</p>
+        <h3 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
+          {preview.subject}
+        </h3>
         {preview.trendingTopic && (
-          <p className="text-muted-foreground mt-2 text-xs">
+          <p className="text-muted-foreground mt-2 text-sm">
             Trending topic:{" "}
             <span className="text-foreground font-medium">
               {preview.trendingTopic}
@@ -66,18 +97,34 @@ function PreviewEdition({ preview }: Readonly<{ preview: DemoPreview }>) {
         </p>
       </header>
 
-      <div className="divide-y">
+      <motion.div
+        className="mt-8 divide-y border-y"
+        initial="hidden"
+        animate="show"
+        variants={{
+          hidden: {},
+          show: {
+            transition: skipTravel
+              ? { staggerChildren: 0 }
+              : { staggerChildren: 0.045, delayChildren: 0.22 },
+          },
+        }}
+      >
         {preview.articles.map((article, index) => (
-          <div
+          <motion.div
             key={`${article.url}-${index}`}
-            className="animate-in fade-in slide-in-from-bottom-2 p-6 duration-500"
-            style={{
-              animationDelay: `${120 + index * 70}ms`,
-              animationFillMode: "both",
+            className="py-6"
+            variants={{
+              hidden: skipTravel ? { opacity: 1, y: 0 } : { opacity: 0, y: 10 },
+              show: {
+                opacity: 1,
+                y: 0,
+                transition: { duration: 0.35, ease: EASE },
+              },
             }}
           >
             <div className="text-muted-foreground flex items-center gap-2 text-xs">
-              <span className="text-primary font-mono">
+              <span className="font-mono tabular-nums">
                 {String(index + 1).padStart(2, "0")}
               </span>
               {article.topics.slice(0, 2).map((topic) => (
@@ -96,17 +143,21 @@ function PreviewEdition({ preview }: Readonly<{ preview: DemoPreview }>) {
               <h4 className="group-hover:text-primary font-medium leading-snug transition-colors">
                 {article.title}
               </h4>
-              <ExternalLink className="text-muted-foreground size-4 shrink-0" />
+              <ExternalLink
+                aria-hidden
+                className="text-muted-foreground size-4 shrink-0"
+              />
+              <span className="sr-only">(opens in a new tab)</span>
             </a>
 
             {article.summary && (
-              <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
+              <p className="text-muted-foreground mt-2 max-w-prose text-sm leading-relaxed">
                 {article.summary}
               </p>
             )}
 
             {article.reason && (
-              <p className="text-muted-foreground mt-2 text-sm">
+              <p className="text-muted-foreground mt-2 max-w-prose text-sm">
                 <span className="text-foreground font-medium">
                   Why it matters:{" "}
                 </span>
@@ -123,16 +174,15 @@ function PreviewEdition({ preview }: Readonly<{ preview: DemoPreview }>) {
                 </span>
               )}
             </div>
-          </div>
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
 
-      <Separator />
-      <footer className="text-muted-foreground p-6 text-xs">
-        A sample weekly edition. Join free to get Daily, Weekly, or both in
-        your inbox.
+      <footer className="text-muted-foreground mt-6 text-xs">
+        A sample weekly edition. Join to get Daily, Weekly, or both in your
+        inbox.
       </footer>
-    </article>
+    </motion.article>
   )
 }
 
@@ -142,17 +192,19 @@ export function DemoPreviewCanvas({
   error,
   aside,
 }: Readonly<DemoPreviewCanvasProps>) {
-  let body = <EmptyState error={error} />
-  if (loading && !preview) {
-    body = <LoadingState />
-  } else if (preview) {
+  if (!loading && !preview) {
+    return null
+  }
+
+  let body = <LoadingState />
+  if (preview) {
     body = <PreviewEdition key={preview.previewId} preview={preview} />
   }
 
   return (
     <section
-      id="try-now"
-      className="border-border/60 scroll-mt-16 border-y bg-muted/30"
+      id="edition"
+      className="border-border/60 scroll-mt-16 border-y bg-muted dark:bg-background"
     >
       <div
         className={cn(
@@ -160,28 +212,33 @@ export function DemoPreviewCanvas({
           aside && "max-lg:pb-36"
         )}
       >
-        <div className="mx-auto max-w-2xl text-center">
+        <div className="max-w-2xl">
           <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
             Your edition, ranked live
           </h2>
-          <p className="text-muted-foreground mt-4 text-balance">
+          <p className="text-muted-foreground mt-4 max-w-prose">
             {preview
               ? `This is an edition like the weekly briefing you would receive — ranked for ${topicList(preview.topicNames)}. Daily is available after you join.`
-              : "Choose topics above and generate a weekly briefing from real articles in the corpus."}
+              : "Ranking a weekly briefing from real articles in the corpus."}
           </p>
+          {error && !preview ? (
+            <p className="text-destructive mt-3 text-sm" role="alert">
+              {error}
+            </p>
+          ) : null}
         </div>
 
         <div
           className={cn(
-            "mt-0 grid items-start gap-8 lg:justify-center",
+            "mt-2 grid items-start gap-8 lg:justify-center",
             aside
-              ? "lg:grid-cols-[minmax(0,40rem)_18rem]"
+              ? "lg:grid-cols-[minmax(0,42rem)_16rem]"
               : "mx-auto max-w-3xl"
           )}
         >
           <div className="min-w-0">{body}</div>
           {aside ? (
-            <aside className="lg:sticky lg:top-20 lg:self-start">
+            <aside className="lg:sticky lg:top-20 lg:self-start lg:pt-10">
               <div className="fixed inset-x-4 bottom-4 z-40 lg:static lg:inset-auto lg:bottom-auto lg:z-auto">
                 {aside}
               </div>

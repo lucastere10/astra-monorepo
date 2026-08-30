@@ -51,9 +51,9 @@ export default async function NewsletterDetailPage({
         />
       </div>
 
-      <article className="bg-card overflow-hidden rounded-xl border">
-        <header className="border-b p-6">
-          <p className="text-primary text-xs font-semibold uppercase tracking-wide">
+      <article className="border-t pt-8">
+        <header className="border-b pb-6">
+          <p className="text-muted-foreground text-sm">
             {brandingLabel(newsletter.cadence as NewsletterCadence)}
           </p>
           <h1 className="mt-1 text-xl font-semibold">{newsletter.subject}</h1>
@@ -73,7 +73,7 @@ export default async function NewsletterDetailPage({
 
         <div className="divide-y">
           {newsletter.articles.map((item) => (
-            <div key={item.id} className="p-6">
+            <div key={item.id} className="py-6">
               <div className="text-muted-foreground flex items-center gap-2 text-xs">
                 <span className="text-primary font-mono">
                   {String(item.rank).padStart(2, "0")}
@@ -128,7 +128,7 @@ export default async function NewsletterDetailPage({
         </div>
 
         <Separator />
-        <footer className="text-muted-foreground p-6 text-xs">
+        <footer className="text-muted-foreground py-6 text-xs">
           You are receiving {BRAND_NAME} because you subscribed with{" "}
           {user.email}.
         </footer>
