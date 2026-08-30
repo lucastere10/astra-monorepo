@@ -95,13 +95,13 @@ export async function writeNewsletterCopy(options: {
 
   try {
     const client = new OpenAI({ apiKey })
-    const completion = await createChatCompletion(client, {
+    const content = await createChatCompletion(client, {
       model: process.env.OPENAI_MODEL || "gpt-4o-mini",
       messages: [{ role: "user", content: prompt }],
       response_format: { type: "json_object" },
       temperature: 0.5,
     })
-    const payload = JSON.parse(completion.choices[0]?.message?.content || "{}")
+    const payload = JSON.parse(content || "{}")
     const parsed = voiceSchema.safeParse(payload)
     if (!parsed.success) return fallback
     return {
