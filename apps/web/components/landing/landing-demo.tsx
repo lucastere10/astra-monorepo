@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 import type { DemoPreview } from "@/modules/demo/types"
 
@@ -13,6 +13,15 @@ export function LandingDemo() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [cardDismissed, setCardDismissed] = useState(false)
+
+  const showEdition = loading || Boolean(preview)
+
+  useEffect(() => {
+    if (!preview) return
+    document
+      .getElementById("edition")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" })
+  }, [preview])
 
   async function generate(topics: string[]) {
     setError(null)
@@ -30,9 +39,6 @@ export function LandingDemo() {
       }
       setPreview(data)
       setCardDismissed(false)
-      document
-        .getElementById("try-now")
-        ?.scrollIntoView({ behavior: "smooth", block: "start" })
     } catch {
       setError("Something went wrong. Please try again.")
     } finally {
@@ -43,19 +49,21 @@ export function LandingDemo() {
   return (
     <>
       <Hero onGenerate={generate} loading={loading} error={error} />
-      <DemoPreviewCanvas
-        preview={preview}
-        loading={loading}
-        error={error}
-        aside={
-          preview && !cardDismissed ? (
-            <DemoSubscribeCard
-              preview={preview}
-              onDismiss={() => setCardDismissed(true)}
-            />
-          ) : null
-        }
-      />
+      {showEdition ? (
+        <DemoPreviewCanvas
+          preview={preview}
+          loading={loading}
+          error={error}
+          aside={
+            preview && !cardDismissed ? (
+              <DemoSubscribeCard
+                preview={preview}
+                onDismiss={() => setCardDismissed(true)}
+              />
+            ) : null
+          }
+        />
+      ) : null}
     </>
   )
 }

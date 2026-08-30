@@ -1,8 +1,9 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { motion, useAnimationControls, useReducedMotion } from "motion/react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import Link from "next/link"
-import { ArrowRight, Loader2, Sparkles } from "lucide-react"
+import { Loader2 } from "lucide-react"
 
 import { TOPICS } from "@workspace/shared/topics"
 import { Button } from "@workspace/ui/components/button"
@@ -11,11 +12,20 @@ import { cn } from "@workspace/ui/lib/utils"
 const MIN_TOPICS = 2
 const MAX_TOPICS = 5
 const DEFAULT_SELECTED = ["ai-agents", "llms", "mcp"] as const
+const INITIAL_TOPIC_SLUGS = new Set([
+  "ai-agents",
+  "llms",
+  "mcp",
+  "ai-engineering",
+  "cloud",
+  "security",
+])
 const GENERATE_STATUSES = [
   "Collecting…",
   "Ranking…",
   "Building edition…",
 ] as const
+const EASE = [0.16, 1, 0.3, 1] as const
 
 interface HeroProps {
   onGenerate: (topics: string[]) => Promise<void>
@@ -23,9 +33,56 @@ interface HeroProps {
   error: string | null
 }
 
+function topicLabel(slug: string, name: string): string {
+  return slug === "mcp" ? "Model Context Protocol" : name
+}
+
 export function Hero({ onGenerate, loading, error }: Readonly<HeroProps>) {
   const [selected, setSelected] = useState<string[]>(() => [...DEFAULT_SELECTED])
   const [statusIndex, setStatusIndex] = useState(0)
+  const [showAllTopics, setShowAllTopics] = useState(false)
+  const reduceMotion = useReducedMotion()
+  const copyControls = useAnimationControls()
+  const panelControls = useAnimationControls()
+  const buttonControls = useAnimationControls()
+  const washRef = useRef<HTMLDivElement>(null)
+  const [washPaused, setWashPaused] = useState(false)
+
+  useLayoutEffect(() => {
+    if (reduceMotion !== false) return
+
+    copyControls.set({ opacity: 0, y: 14 })
+    panelControls.set({ opacity: 0, y: 14 })
+    buttonControls.set({ scale: 0.98 })
+
+    void copyControls.start({
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.45, ease: EASE },
+    })
+    void panelControls.start({
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.45, ease: EASE, delay: 0.14 },
+    })
+    void buttonControls.start({
+      scale: 1,
+      transition: { duration: 0.4, ease: EASE, delay: 0.42 },
+    })
+  }, [reduceMotion, copyControls, panelControls, buttonControls])
+
+  useEffect(() => {
+    const node = washRef.current
+    if (!node) return
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setWashPaused(!entry?.isIntersecting)
+      },
+      { threshold: 0.08 }
+    )
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
 
   useEffect(() => {
     if (!loading) {
@@ -51,106 +108,124 @@ export function Hero({ onGenerate, loading, error }: Readonly<HeroProps>) {
   const canGenerate =
     selected.length >= MIN_TOPICS && selected.length <= MAX_TOPICS && !loading
 
+  const visibleTopics = showAllTopics
+    ? TOPICS
+    : TOPICS.filter((topic) => INITIAL_TOPIC_SLUGS.has(topic.slug))
+  const hiddenCount = TOPICS.length - INITIAL_TOPIC_SLUGS.size
+
   return (
     <section className="relative flex min-h-svh items-center overflow-hidden">
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10"
-        style={{
-          background:
-            "radial-gradient(60% 50% at 50% 0%, color-mix(in oklch, var(--primary) 18%, transparent) 0%, transparent 70%)",
-        }}
+        className="hero-wash pointer-events-none absolute inset-0 -z-10"
+        data-paused={washPaused ? "true" : "false"}
+        ref={washRef}
       />
       <div className="mx-auto grid w-full max-w-6xl items-center gap-12 px-4 py-16 sm:px-6 lg:grid-cols-[1.05fr_0.95fr]">
-        <div className="max-w-xl">
+        <motion.div className="max-w-xl" initial={false} animate={copyControls}>
           <h1 className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl lg:text-6xl">
             Personalized AI &amp; technology newsletters,{" "}
             <span className="text-primary">daily or weekly</span>
           </h1>
 
-          <p className="text-muted-foreground mt-6 text-balance text-lg">
+          <p className="text-muted-foreground mt-6 max-w-prose text-lg">
             Astra collects articles from across the web, ranks them against your
             interests, and delivers a briefing that actually matters — every
             morning, every Monday, or both.
           </p>
 
-          <div className="mt-8 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
-            <Button asChild variant="outline" size="lg">
-              <Link href="/login">
-                Try for free
-                <ArrowRight />
-              </Link>
-            </Button>
-            <p className="text-muted-foreground text-xs">
-              This is a personal project. No plans to charge for this service.
-            </p>
-          </div>
-        </div>
-
-        <div className="bg-card/80 rounded-2xl border p-6 shadow-sm backdrop-blur-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide">
-            Try it now
+          <p className="text-muted-foreground mt-8 text-sm">
+            A personal project. No plans to charge for this service.{" "}
+            <Link
+              href="/login"
+              className="text-foreground underline-offset-4 hover:underline"
+            >
+              Sign in
+            </Link>
           </p>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Pick {MIN_TOPICS}–{MAX_TOPICS} topics. No signup — we&apos;ll rank a
+        </motion.div>
+
+        <motion.div
+          id="try-now"
+          className="scroll-mt-20"
+          initial={false}
+          animate={panelControls}
+        >
+          <h2 className="text-lg font-semibold tracking-tight">
+            Generate a briefing
+          </h2>
+          <p className="text-muted-foreground mt-3 text-sm">
+            Pick {MIN_TOPICS}–{MAX_TOPICS} {" "} topics. No signup — we&apos;ll rank a
             real weekly edition on this page.
           </p>
 
-          <div className="mt-5 flex flex-wrap gap-2">
-            {TOPICS.map((topic) => {
+          <div className="mt-8 flex flex-wrap gap-2">
+            {visibleTopics.map((topic) => {
               const isSelected = selected.includes(topic.slug)
               const atMax = selected.length >= MAX_TOPICS && !isSelected
+              const label = topicLabel(topic.slug, topic.name)
               return (
                 <button
                   key={topic.slug}
                   type="button"
                   aria-pressed={isSelected}
+                  aria-label={`${label}. ${topic.description}`}
                   disabled={atMax}
-                  title={topic.description}
+                  title={
+                    atMax
+                      ? `Maximum of ${MAX_TOPICS} topics`
+                      : topic.description
+                  }
                   onClick={() => toggleTopic(topic.slug)}
                   className={cn(
-                    "rounded-full border px-3 py-1.5 text-sm transition-colors",
+                    "min-h-11 rounded-full border px-3.5 py-2 text-sm transition-colors",
                     isSelected
                       ? "border-primary bg-primary text-primary-foreground"
                       : "border-border bg-background text-foreground hover:border-primary/40 hover:bg-muted",
                     atMax && "opacity-50"
                   )}
                 >
-                  {topic.name}
+                  {label}
                 </button>
               )
             })}
+            {!showAllTopics && hiddenCount > 0 ? (
+              <button
+                type="button"
+                onClick={() => setShowAllTopics(true)}
+                className="text-muted-foreground hover:text-foreground min-h-11 rounded-full border border-dashed px-3.5 py-2 text-sm transition-colors"
+              >
+                More topics
+              </button>
+            ) : null}
           </div>
 
-          <div className="mt-6 flex flex-col gap-2">
-            <Button
-              size="lg"
-              disabled={!canGenerate}
-              onClick={() => onGenerate(selected)}
-              className={cn(
-                "relative w-full overflow-hidden sm:w-auto",
-                loading && "animate-pulse"
-              )}
-            >
-              {loading ? (
-                <Loader2 className="animate-spin" />
-              ) : (
-                <Sparkles />
-              )}
-              {loading
-                ? GENERATE_STATUSES[statusIndex]
-                : "Generate my newsletter"}
-            </Button>
+          <div className="mt-10">
+            <motion.div initial={false} animate={buttonControls}>
+              <Button
+                size="lg"
+                disabled={!canGenerate}
+                onClick={() => onGenerate(selected)}
+                className="h-11 w-full text-sm"
+              >
+                {loading ? <Loader2 className="animate-spin" /> : null}
+                <span aria-live="polite">
+                  {loading
+                    ? GENERATE_STATUSES[statusIndex]
+                    : "Generate my newsletter"}
+                </span>
+              </Button>
+            </motion.div>
             {error && (
-              <p className="text-destructive text-sm" role="alert">
+              <p className="text-destructive mt-4 text-sm" role="alert">
                 {error}
               </p>
             )}
-            <p className="text-muted-foreground text-xs">
+            <p className="text-muted-foreground mt-4 text-xs">
               {selected.length} selected · {MIN_TOPICS}–{MAX_TOPICS} topics
             </p>
           </div>
-        </div>
+        </motion.div>
       </div>
     </section>
   )

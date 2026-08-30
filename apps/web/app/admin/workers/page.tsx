@@ -72,7 +72,7 @@ export default async function AdminWorkersPage({
 
       {executions.length > 0 && <div className="mb-4">{pagination}</div>}
 
-      <div className="bg-card rounded-xl border">
+      <div className="border">
         <Table>
           <TableHeader>
             <TableRow>
