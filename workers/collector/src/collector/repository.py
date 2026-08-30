@@ -326,25 +326,41 @@ class CandidateArticle:
     duplicate_cluster: str | None
     reading_time_min: int | None
     source_name: str | None
+    source_url: str | None
+    source_id: str | None
     topics: list[tuple[str, float, str]]  # topicId, relevance, name
 
 
-def fetch_candidate_articles(conn: Connection, limit: int = 200) -> list[CandidateArticle]:
+PER_SOURCE_CANDIDATES = 12
+
+
+def fetch_candidate_articles(
+    conn: Connection, per_source: int = PER_SOURCE_CANDIDATES
+) -> list[CandidateArticle]:
     since = _now() - timedelta(days=30)
     rows = conn.execute(
         text(
             '''
-            SELECT a.id, a.title, a.summary, a.url, a."globalScore", a."publishedAt",
-                   a."duplicateCluster", a."readingTimeMin", s.name
-            FROM "Article" a
-            LEFT JOIN "NewsSource" s ON s.id = a."sourceId"
-            WHERE (a."publishedAt" IS NOT NULL AND a."publishedAt" >= :since)
-               OR (a."publishedAt" IS NULL AND a."createdAt" >= :since)
-            ORDER BY a."globalScore" DESC
-            LIMIT :limit
+            SELECT id, title, summary, url, "globalScore", "publishedAt",
+                   "duplicateCluster", "readingTimeMin", source_name, source_url,
+                   "sourceId"
+            FROM (
+                SELECT a.id, a.title, a.summary, a.url, a."globalScore",
+                       a."publishedAt", a."duplicateCluster", a."readingTimeMin",
+                       s.name AS source_name, s.url AS source_url, a."sourceId",
+                       ROW_NUMBER() OVER (
+                           PARTITION BY a."sourceId"
+                           ORDER BY a."globalScore" DESC
+                       ) AS rn
+                FROM "Article" a
+                LEFT JOIN "NewsSource" s ON s.id = a."sourceId"
+                WHERE (a."publishedAt" IS NOT NULL AND a."publishedAt" >= :since)
+                   OR (a."publishedAt" IS NULL AND a."createdAt" >= :since)
+            ) ranked
+            WHERE rn <= :per_source
             '''
         ),
-        {"since": since, "limit": limit},
+        {"since": since, "per_source": per_source},
     ).fetchall()
 
     if not rows:
@@ -385,6 +401,8 @@ def fetch_candidate_articles(conn: Connection, limit: int = 200) -> list[Candida
             duplicate_cluster=r[6],
             reading_time_min=r[7],
             source_name=r[8],
+            source_url=r[9],
+            source_id=r[10],
             topics=topics_by_article.get(r[0], []),
         )
         for r in rows

@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     template: "%s — Astra",
   },
   description:
-    "Astra continuously collects, enriches and ranks technology news with AI, then delivers a personalized newsletter tuned to your interests.",
+    "Free daily and weekly newsletters ranked to your interests. Astra collects, enriches and ranks technology news — a personal project with no plans to charge.",
 }
 
 export default function RootLayout({

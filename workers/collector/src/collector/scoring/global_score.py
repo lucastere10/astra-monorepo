@@ -6,6 +6,7 @@ The recommendation engine in the web app combines this with per-user signals.
 
 from __future__ import annotations
 
+import math
 from datetime import datetime, timezone
 
 from ..models import Enrichment, RawArticle
@@ -25,7 +26,8 @@ def _freshness(published_at: datetime | None, half_life_hours: float = 48.0) -> 
 
 def _richness(raw: RawArticle, enrichment: Enrichment) -> float:
     length = len(raw.content or "")
-    length_score = min(1.0, length / 2000.0)
+    # Log-ish cap so long papers do not outrank news solely on abstract length.
+    length_score = min(1.0, math.log1p(length) / math.log1p(1200.0))
     keyword_score = min(1.0, len(enrichment.keywords) / 8.0)
     return 0.6 * length_score + 0.4 * keyword_score
 

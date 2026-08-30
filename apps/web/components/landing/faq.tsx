@@ -18,7 +18,11 @@ const FAQS = [
   },
   {
     question: "How often will I receive an edition?",
-    answer: `By default, ${BRAND_NAME} delivers weekly. You can switch to a daily digest and pick your send time in Preferences.`,
+    answer: `Daily, Weekly, or both — you choose in Preferences. Pick send days and a morning, midday, or evening window. The try-now demo on this page previews a weekly edition.`,
+  },
+  {
+    question: "Does Astra cost anything?",
+    answer: `${BRAND_NAME} is a personal project and is free to use. There are no plans to charge, and you can unsubscribe anytime.`,
   },
   {
     question: "Where do the articles come from?",
@@ -36,22 +40,18 @@ export function Faq() {
   return (
     <section id="faq" className="mx-auto max-w-3xl px-4 py-20 sm:px-6">
       <div className="mx-auto max-w-2xl text-center">
-        <h2 className="font-display text-3xl font-semibold tracking-tight text-stone-50 sm:text-4xl">
+        <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
           Frequently asked questions
         </h2>
       </div>
 
       <Accordion type="single" collapsible className="mt-10 w-full">
         {FAQS.map((faq) => (
-          <AccordionItem
-            key={faq.question}
-            value={faq.question}
-            className="border-white/10"
-          >
-            <AccordionTrigger className="text-base text-stone-100 hover:no-underline hover:text-amber-200">
+          <AccordionItem key={faq.question} value={faq.question}>
+            <AccordionTrigger className="hover:text-primary text-base hover:no-underline">
               {faq.question}
             </AccordionTrigger>
-            <AccordionContent className="text-stone-400">
+            <AccordionContent className="text-muted-foreground">
               {faq.answer}
             </AccordionContent>
           </AccordionItem>
