@@ -38,15 +38,10 @@ def process_source(
     source: Source,
     topic_map: dict[str, str],
     settings: Settings,
+    candidates: list[tuple[str, str | None, list[float], str, str]],
 ) -> int:
     raws = _collect(source, settings.max_articles_per_source, settings)
     inserted = 0
-
-    candidates = repository.fetch_recent_articles_for_dedup(
-        conn,
-        lookback_days=settings.dedup_lookback_days,
-        limit=settings.dedup_candidate_limit,
-    )
 
     for raw in raws:
         if repository.article_exists(conn, raw.url):

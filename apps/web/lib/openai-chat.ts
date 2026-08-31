@@ -41,6 +41,13 @@ function completionText(result: unknown): string | null {
   return typeof content === "string" ? content : null
 }
 
+function omitUnsupportedSampling(request: Record<string, unknown>): void {
+  const model = request.model
+  if (typeof model === "string" && model.startsWith("gpt-5")) {
+    delete request.temperature
+  }
+}
+
 /**
  * chat.completions.create that peels off sampling params a model rejects
  * (e.g. gpt-5.x only allows the default temperature, so sending 0.5 400s).
@@ -51,6 +58,7 @@ export async function createChatCompletion(
   params: ChatCompletionJsonParams
 ): Promise<string> {
   const request: Record<string, unknown> = { ...params }
+  omitUnsupportedSampling(request)
   for (let attempt = 0; attempt < MAX_PARAM_DROPS; attempt++) {
     try {
       const result = await client.chat.completions.create(

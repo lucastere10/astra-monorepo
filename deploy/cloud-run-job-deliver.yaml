@@ -1,6 +1,6 @@
 # Cloud Run Job — collector deliver (auto-send newsletters)
 # Placeholders: __JOB_NAME__  __IMAGE__  __REGION__  __APP_URL__  __EMAIL_FROM__
-#               __SERVICE_ACCOUNT__
+#               __OPENAI_MODEL__  __SERVICE_ACCOUNT__
 #
 # Container args override the image default (`collect`) to run `deliver`.
 
@@ -40,6 +40,8 @@ spec:
                   value: __APP_URL__
                 - name: EMAIL_FROM
                   value: __EMAIL_FROM__
+                - name: OPENAI_MODEL
+                  value: __OPENAI_MODEL__
                 - name: DATABASE_URL
                   valueFrom:
                     secretKeyRef:
@@ -49,4 +51,9 @@ spec:
                   valueFrom:
                     secretKeyRef:
                       name: astra-resend-api-key
+                      key: latest
+                - name: OPENAI_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: astra-openai-api-key
                       key: latest

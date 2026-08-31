@@ -166,7 +166,7 @@ Secret Manager **resource names** use the `astra-*` prefix below.
 | `astra-direct-url`        | `DIRECT_URL`         | web, migrate step          | Supabase direct URL for Prisma migrate. |
 | `astra-session-secret`    | `SESSION_SECRET`     | web                        | `openssl rand -base64 32` |
 | `astra-resend-api-key`    | `RESEND_API_KEY`     | web, deliver               | Resend API key |
-| `astra-openai-api-key`    | `OPENAI_API_KEY`     | collect                    | Optional for local; recommended in prod |
+| `astra-openai-api-key`    | `OPENAI_API_KEY`     | web, collect, deliver      | Optional for local; recommended in prod |
 | `astra-exa-api-key`       | `EXA_API_KEY`        | collect                    | Create with empty string if unused |
 
 ## Optional
