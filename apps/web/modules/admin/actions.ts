@@ -6,6 +6,10 @@ import { z } from "zod"
 import { prisma } from "@workspace/database"
 
 import { requireAdmin } from "@/modules/auth/dal"
+import {
+  isLlmCopyEnabled,
+  setLlmCopyEnabled,
+} from "@/modules/platform/platform-settings"
 
 const toggleSchema = z.object({
   sourceId: z.string().min(1),
@@ -51,4 +55,11 @@ export async function setUserRole(formData: FormData) {
   })
 
   revalidatePath("/admin/users")
+}
+
+export async function toggleLlmCopy() {
+  await requireAdmin()
+  const enabled = await isLlmCopyEnabled()
+  await setLlmCopyEnabled(!enabled)
+  revalidatePath("/admin/newsletters")
 }

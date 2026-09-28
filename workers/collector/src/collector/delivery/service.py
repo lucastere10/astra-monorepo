@@ -168,6 +168,7 @@ def deliver_for_slot(
             }
             for item in ranked
         ],
+        use_llm=repository.llm_copy_enabled(conn),
     )
     intro = copy["intro"]
     reasons: dict[str, str] = copy["reasons"]

@@ -46,11 +46,12 @@ def write_newsletter_copy(
     cadence: str,
     trending_topic: str | None,
     articles: list[dict[str, Any]],
+    use_llm: bool = True,
 ) -> dict[str, Any]:
     fallback = _fallback(
         cadence=cadence, trending_topic=trending_topic, articles=articles
     )
-    if not articles or not settings.openai_api_key:
+    if not articles or not use_llm or not settings.openai_api_key:
         return fallback
 
     period_word = "today" if cadence == "DAILY" else "this week"

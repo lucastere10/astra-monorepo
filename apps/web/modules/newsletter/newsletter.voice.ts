@@ -6,6 +6,7 @@ import { z } from "zod"
 import type { NewsletterCadence } from "@workspace/shared/cadence"
 
 import { createChatCompletion } from "@/lib/openai-chat"
+import { isLlmCopyEnabled } from "@/modules/platform/platform-settings"
 import { buildIntro, buildReason } from "./newsletter.copy"
 
 export interface VoiceArticle {
@@ -59,7 +60,8 @@ function mergeReasons(
 
 /**
  * Write intro + per-article "Why it matters" for a finished ranking.
- * Falls back to templates when the API key is missing or the call fails.
+ * Uses templates when an admin has turned LLM copy off, the API key is
+ * missing, or the call fails.
  */
 export async function writeNewsletterCopy(options: {
   cadence: NewsletterCadence
@@ -69,6 +71,8 @@ export async function writeNewsletterCopy(options: {
   const { cadence, trendingTopic, articles } = options
   const fallback = fallbackCopy(cadence, trendingTopic, articles)
   if (articles.length === 0) return fallback
+
+  if (!(await isLlmCopyEnabled())) return fallback
 
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) return fallback

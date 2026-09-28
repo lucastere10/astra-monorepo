@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 
 import { formatRelativeTime } from "@workspace/shared/utils"
 import { Badge } from "@workspace/ui/components/badge"
+import { Button } from "@workspace/ui/components/button"
 import {
   Table,
   TableBody,
@@ -12,10 +13,12 @@ import {
 } from "@workspace/ui/components/table"
 
 import { ListPagination } from "@/components/list-pagination"
+import { toggleLlmCopy } from "@/modules/admin/actions"
 import {
   listAdminNewsletters,
   parsePage,
 } from "@/modules/admin/admin.service"
+import { isLlmCopyEnabled } from "@/modules/platform/platform-settings"
 
 export const metadata: Metadata = {
   title: "Newsletter editions",
@@ -39,12 +42,15 @@ export default async function AdminNewslettersPage({
 }) {
   const { page: pageParam } = await searchParams
   const page = parsePage(pageParam)
-  const {
-    items: newsletters,
-    total,
-    totalPages,
-    page: currentPage,
-  } = await listAdminNewsletters(page)
+  const [
+    {
+      items: newsletters,
+      total,
+      totalPages,
+      page: currentPage,
+    },
+    llmCopyEnabled,
+  ] = await Promise.all([listAdminNewsletters(page), isLlmCopyEnabled()])
 
   const pagination = (
     <ListPagination
@@ -65,6 +71,25 @@ export default async function AdminNewslettersPage({
           All generated editions across users.
         </p>
       </header>
+
+      <section className="mb-6 flex flex-wrap items-center justify-between gap-4 border px-4 py-4">
+        <div>
+          <p className="text-sm font-medium">Copy generation</p>
+          <p className="text-muted-foreground mt-1 text-sm">
+            {llmCopyEnabled
+              ? "New editions use the LLM for the intro and why-it-matters lines."
+              : "New editions use the template copy. Existing editions stay as they are."}
+          </p>
+        </div>
+        <form action={toggleLlmCopy} className="flex items-center gap-3">
+          <Badge variant={llmCopyEnabled ? "default" : "secondary"} className="py-0">
+            {llmCopyEnabled ? "LLM" : "Templates"}
+          </Badge>
+          <Button type="submit" variant="outline" size="xs">
+            {llmCopyEnabled ? "Use templates" : "Use LLM"}
+          </Button>
+        </form>
+      </section>
 
       {newsletters.length > 0 && <div className="mb-4">{pagination}</div>}
 
