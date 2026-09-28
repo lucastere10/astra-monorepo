@@ -1,7 +1,7 @@
 # Cloud Run Service — Astra web (Next.js)
 # Placeholders are replaced by Cloud Build / deploy scripts:
 #   __SERVICE_NAME__  __IMAGE__  __REGION__  __PROJECT_ID__
-#   __NEXT_PUBLIC_APP_URL__  __EMAIL_FROM__
+#   __NEXT_PUBLIC_APP_URL__  __EMAIL_FROM__  __OPENAI_MODEL__
 #
 # Prefer applying via cloudbuild.yaml (gcloud run deploy). This file documents
 # the desired shape and can be used with:
@@ -45,6 +45,8 @@ spec:
               value: __NEXT_PUBLIC_APP_URL__
             - name: EMAIL_FROM
               value: __EMAIL_FROM__
+            - name: OPENAI_MODEL
+              value: __OPENAI_MODEL__
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
@@ -64,6 +66,11 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: astra-resend-api-key
+                  key: latest
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: astra-openai-api-key
                   key: latest
             # Optional — omit REDIS_URL secret if unused; app degrades without cache.
             # - name: REDIS_URL

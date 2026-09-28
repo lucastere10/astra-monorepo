@@ -63,7 +63,7 @@ export default async function NewslettersPage({
       </header>
 
       {newsletters.length === 0 ? (
-        <div className="bg-card flex flex-col items-center gap-3 rounded-xl border p-12 text-center">
+        <div className="flex flex-col items-center gap-3 border-y py-12 text-center">
           <span className="bg-muted text-muted-foreground flex size-10 items-center justify-center rounded-full">
             <Mail className="size-5" />
           </span>
@@ -81,7 +81,7 @@ export default async function NewslettersPage({
               <li key={newsletter.id}>
                 <Link
                   href={`/newsletters/${newsletter.id}`}
-                  className="bg-card hover:border-primary/40 flex items-center justify-between gap-4 rounded-lg border p-4 transition-colors"
+                  className="hover:border-primary/40 flex items-center justify-between gap-4 border p-4 transition-colors"
                 >
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">

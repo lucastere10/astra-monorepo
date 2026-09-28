@@ -325,9 +325,9 @@ export function PreferencesForm({ initial, delivery }: PreferencesFormProps) {
           {/* Daily card */}
           <div
             className={cn(
-              "bg-card flex flex-col rounded-xl border transition-colors",
+              "bg-card flex flex-col rounded-none border transition-colors",
               dailyEnabled && autoSendEnabled
-                ? "border-foreground/40 ring-1 ring-foreground/10"
+                ? "border-foreground/40"
                 : "border-border"
             )}
           >
@@ -360,7 +360,7 @@ export function PreferencesForm({ initial, delivery }: PreferencesFormProps) {
                 </span>
               </div>
               <p className="text-muted-foreground text-sm leading-relaxed">
-                ~6 stories on the days you choose — a quick pulse of what
+                6 stories on the days you choose — a quick pulse of what
                 matters.
               </p>
               <p className="text-muted-foreground text-xs">
@@ -397,9 +397,9 @@ export function PreferencesForm({ initial, delivery }: PreferencesFormProps) {
           {/* Weekly card */}
           <div
             className={cn(
-              "bg-card flex flex-col rounded-xl border transition-colors",
+              "bg-card flex flex-col rounded-none border transition-colors",
               weeklyEnabled && autoSendEnabled
-                ? "border-foreground/40 ring-1 ring-foreground/10"
+                ? "border-foreground/40"
                 : "border-border"
             )}
           >
@@ -432,7 +432,7 @@ export function PreferencesForm({ initial, delivery }: PreferencesFormProps) {
                 </span>
               </div>
               <p className="text-muted-foreground text-sm leading-relaxed">
-                ~10 stories once a week — a fuller briefing you can sit with.
+                10 stories once a week — a fuller briefing you can sit with.
               </p>
               <p className="text-muted-foreground text-xs">
                 Best for a weekend or Monday catch-up.
@@ -466,7 +466,7 @@ export function PreferencesForm({ initial, delivery }: PreferencesFormProps) {
           </div>
         </div>
 
-        <div className="bg-muted/30 flex items-center justify-between gap-3 rounded-lg border border-dashed px-4 py-3">
+        <div className="bg-muted/30 flex items-center justify-between gap-3 rounded-none border border-dashed px-4 py-3">
           <div>
             <p className="text-sm font-medium">Send automatically</p>
             <p className="text-muted-foreground text-xs">
@@ -495,7 +495,7 @@ export function PreferencesForm({ initial, delivery }: PreferencesFormProps) {
             return (
               <div
                 key={topic.topicId}
-                className="bg-card flex flex-col gap-3 rounded-lg border p-4"
+                className="bg-card flex flex-col gap-3 rounded-none border p-4"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">

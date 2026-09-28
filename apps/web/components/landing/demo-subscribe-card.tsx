@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useLayoutEffect, useState } from "react"
 import { Loader2, Mail, X } from "lucide-react"
+import { motion, useAnimationControls, useReducedMotion } from "motion/react"
 
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
@@ -25,9 +26,11 @@ export function DemoSubscribeCard({
   const [email, setEmail] = useState("")
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const reduceMotion = useReducedMotion()
+  const cardControls = useAnimationControls()
 
   useEffect(() => {
-    const section = document.getElementById("try-now")
+    const section = document.getElementById("edition")
     if (!section) return
 
     const observer = new IntersectionObserver(
@@ -45,6 +48,17 @@ export function DemoSubscribeCard({
     setError(null)
     setPending(false)
   }, [preview.previewId])
+
+  useLayoutEffect(() => {
+    if (!visible) return
+    if (reduceMotion !== false) return
+    cardControls.set({ opacity: 0, y: 10 })
+    void cardControls.start({
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1], delay: 0.5 },
+    })
+  }, [visible, reduceMotion, cardControls])
 
   async function postJson(path: string) {
     setError(null)
@@ -83,18 +97,22 @@ export function DemoSubscribeCard({
   if (!visible) return null
 
   return (
-    <div className="bg-card ring-foreground/10 relative rounded-xl border p-4 shadow-lg ring-1">
+    <motion.div
+      className="bg-background dark:bg-card relative border p-3"
+      initial={false}
+      animate={cardControls}
+    >
       <button
         type="button"
         onClick={onDismiss}
-        className="text-muted-foreground hover:text-foreground absolute top-3 right-3 rounded-md p-1"
+        className="text-muted-foreground hover:text-foreground absolute top-2 right-2 flex size-11 items-center justify-center"
         aria-label="Dismiss"
       >
         <X className="size-4" />
       </button>
 
       {step === "invite" && (
-        <form onSubmit={handleSend} className="flex flex-col gap-3 pr-6">
+        <form onSubmit={handleSend} className="flex flex-col gap-3 pr-10">
           <p className="text-sm font-semibold leading-snug">
             Want this edition in your inbox?
           </p>
@@ -130,7 +148,7 @@ export function DemoSubscribeCard({
       )}
 
       {step === "sent" && (
-        <div className="flex flex-col gap-3 pr-6">
+        <div className="flex flex-col gap-3 pr-10">
           <p className="text-sm font-semibold leading-snug">
             Sample on its way to {email}
           </p>
@@ -161,7 +179,7 @@ export function DemoSubscribeCard({
       )}
 
       {step === "subscribed" && (
-        <div className="flex flex-col gap-2 pr-6">
+        <div className="flex flex-col gap-2 pr-10">
           <p className="text-sm font-semibold leading-snug">Check your email</p>
           <p className="text-muted-foreground text-xs leading-relaxed">
             We sent a sign-in link to {email}. Confirm it to start receiving
@@ -169,6 +187,6 @@ export function DemoSubscribeCard({
           </p>
         </div>
       )}
-    </div>
+    </motion.div>
   )
 }
