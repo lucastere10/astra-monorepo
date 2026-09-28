@@ -26,8 +26,15 @@ def _unsupported_param(exc: BaseException) -> str | None:
     return None
 
 
+def _omit_unsupported_sampling(request: dict[str, Any]) -> None:
+    model = request.get("model")
+    if isinstance(model, str) and model.startswith("gpt-5"):
+        request.pop("temperature", None)
+
+
 def create_chat_completion(client: Any, **params: Any) -> Any:
     request = dict(params)
+    _omit_unsupported_sampling(request)
     last_error: BaseException | None = None
     for _ in range(_MAX_PARAM_DROPS):
         try:

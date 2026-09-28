@@ -74,7 +74,7 @@ class Settings:
             ),
             dedup_lookback_days=int(os.environ.get("DEDUP_LOOKBACK_DAYS", "14")),
             dedup_candidate_limit=int(
-                os.environ.get("DEDUP_CANDIDATE_LIMIT", "400")
+                os.environ.get("DEDUP_CANDIDATE_LIMIT", "100")
             ),
         )
 

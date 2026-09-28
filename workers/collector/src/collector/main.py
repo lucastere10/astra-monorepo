@@ -27,16 +27,24 @@ def run_collect() -> int:
         sources = repository.fetch_active_sources(conn)
         topic_map = repository.fetch_topic_map(conn)
         worker_id = repository.start_worker(conn, COLLECT_WORKER)
+        candidates = repository.fetch_recent_articles_for_dedup(
+            conn,
+            lookback_days=settings.dedup_lookback_days,
+            limit=settings.dedup_candidate_limit,
+        )
 
     print(
-        f"[collector] starting run {worker_id} with {len(sources)} active sources"
+        f"[collector] starting run {worker_id} with {len(sources)} active sources "
+        f"({len(candidates)} dedup candidates)"
     )
 
     total = 0
     try:
         for source in sources:
             with connection(settings) as conn:
-                count = process_source(conn, source, topic_map, settings)
+                count = process_source(
+                    conn, source, topic_map, settings, candidates
+                )
             total += count
             print(f"[collector] {source.name}: +{count} articles")
 
