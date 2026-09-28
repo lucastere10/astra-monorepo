@@ -291,3 +291,13 @@ model WorkerExecution {
   @@index([status])
   @@index([startedAt])
 }
+
+// ---------------------------------------------------------------------------
+// Platform settings (singleton row id = "default")
+// ---------------------------------------------------------------------------
+
+model PlatformSettings {
+  id             String   @id @default("default")
+  llmCopyEnabled Boolean  @default(true)
+  updatedAt      DateTime @updatedAt
+}

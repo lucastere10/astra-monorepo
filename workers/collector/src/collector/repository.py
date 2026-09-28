@@ -500,6 +500,22 @@ def insert_newsletter_article(
     )
 
 
+def llm_copy_enabled(conn: Connection) -> bool:
+    """True when the admin has not turned LLM newsletter copy off.
+
+    A missing row keeps the previous behavior (LLM on when a key exists).
+    """
+    row = conn.execute(
+        text(
+            'SELECT "llmCopyEnabled" FROM "PlatformSettings" WHERE id = :id'
+        ),
+        {"id": "default"},
+    ).fetchone()
+    if row is None:
+        return True
+    return bool(row[0])
+
+
 def update_newsletter_status(
     conn: Connection,
     newsletter_id: str,
